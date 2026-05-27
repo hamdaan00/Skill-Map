@@ -8,6 +8,7 @@ import { useState, useEffect } from "react";
 import { storage } from "@/lib/storage";
 import { supabase } from "@/lib/supabase";
 import Layout from "@/components/Layout";
+import Tutorial from "@/components/Tutorial";
 import JournalDrawer from "@/components/JournalDrawer";
 import AuthPage from "@/pages/AuthPage";
 import Onboarding from "@/pages/Onboarding";
@@ -34,14 +35,13 @@ function AppContent() {
   const [journalOpen, setJournalOpen] = useState(false);
   const [journalSkillId, setJournalSkillId] = useState("");
   const [journalSkillName, setJournalSkillName] = useState("");
+  const [showTutorial, setShowTutorial] = useState(false);
 
   useEffect(() => {
     async function init() {
-      // Check if supabase is available
       if (supabase) {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
-          // Logged in via supabase
           const user = storage.getUser();
           if (!user) {
             const name = session.user.user_metadata?.name || session.user.email?.split("@")[0] || "Learner";
@@ -50,7 +50,6 @@ function AppContent() {
           setAppState("app");
           return;
         }
-        // Listen for future auth changes
         supabase.auth.onAuthStateChange((event, sess) => {
           if (event === "SIGNED_IN" && sess?.user) {
             const user = storage.getUser();
@@ -58,6 +57,7 @@ function AppContent() {
               const name = sess.user.user_metadata?.name || sess.user.email?.split("@")[0] || "Learner";
               storage.setUser({ name, avatar: "🧑‍💻", reminderTime: "08:00", reminderEnabled: false, theme: "dark" });
             }
+            localStorage.removeItem("pst_is_guest");
             setAppState("app");
           } else if (event === "SIGNED_OUT") {
             setAppState("auth");
@@ -65,12 +65,10 @@ function AppContent() {
         });
       }
 
-      // Fall back to localStorage-only check
       const hasUser = !!storage.getUser();
       if (hasUser) {
         setAppState("app");
       } else {
-        // Show auth page if supabase configured, else onboarding
         setAppState(supabase ? "auth" : "onboarding");
       }
     }
@@ -95,11 +93,18 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
-    const handler = () => {
-      setAppState("waves");
-    };
+    const handler = () => setAppState("waves");
     window.addEventListener("open-study-waves", handler);
     return () => window.removeEventListener("open-study-waves", handler);
+  }, []);
+
+  useEffect(() => {
+    const handler = () => {
+      localStorage.removeItem("pst_tutorial_done");
+      setShowTutorial(true);
+    };
+    window.addEventListener("replay-tutorial", handler);
+    return () => window.removeEventListener("replay-tutorial", handler);
   }, []);
 
   useEffect(() => {
@@ -116,6 +121,15 @@ function AppContent() {
     }, 60000);
     return () => clearInterval(interval);
   }, []);
+
+  // Trigger tutorial for first-time users when they reach the app
+  useEffect(() => {
+    if (appState === "app" && !localStorage.getItem("pst_tutorial_done")) {
+      // Small delay so the app UI renders first
+      const t = setTimeout(() => setShowTutorial(true), 600);
+      return () => clearTimeout(t);
+    }
+  }, [appState]);
 
   if (appState === "loading") {
     return (
@@ -140,30 +154,38 @@ function AppContent() {
     return <Onboarding onComplete={() => setAppState("app")} />;
   }
 
+  const handleRequestAuth = () => {
+    localStorage.removeItem("pst_is_guest");
+    setAppState("auth");
+  };
+
   return (
-    <Layout>
-      <Switch>
-        <Route path="/" component={() => <Redirect to="/dashboard" />} />
-        <Route path="/dashboard" component={Dashboard} />
-        <Route path="/skills" component={Skills} />
-        <Route path="/timer" component={FocusTimer} />
-        <Route path="/progress" component={Progress} />
-        <Route path="/targets" component={Targets} />
-        <Route path="/challenges" component={Challenges} />
-        <Route path="/journal" component={Journal} />
-        <Route path="/achievements" component={Achievements} />
-        <Route path="/duels" component={Duels} />
-        <Route path="/partner" component={Partner} />
-        <Route path="/settings" component={Settings} />
-        <Route component={NotFound} />
-      </Switch>
-      <JournalDrawer
-        open={journalOpen}
-        onClose={() => setJournalOpen(false)}
-        skillId={journalSkillId}
-        skillName={journalSkillName}
-      />
-    </Layout>
+    <>
+      <Layout onRequestAuth={handleRequestAuth}>
+        <Switch>
+          <Route path="/" component={() => <Redirect to="/dashboard" />} />
+          <Route path="/dashboard" component={Dashboard} />
+          <Route path="/skills" component={Skills} />
+          <Route path="/timer" component={FocusTimer} />
+          <Route path="/progress" component={Progress} />
+          <Route path="/targets" component={Targets} />
+          <Route path="/challenges" component={Challenges} />
+          <Route path="/journal" component={Journal} />
+          <Route path="/achievements" component={Achievements} />
+          <Route path="/duels" component={Duels} />
+          <Route path="/partner" component={Partner} />
+          <Route path="/settings" component={Settings} />
+          <Route component={NotFound} />
+        </Switch>
+        <JournalDrawer
+          open={journalOpen}
+          onClose={() => setJournalOpen(false)}
+          skillId={journalSkillId}
+          skillName={journalSkillName}
+        />
+      </Layout>
+      {showTutorial && <Tutorial onDone={() => setShowTutorial(false)} />}
+    </>
   );
 }
 

@@ -453,7 +453,7 @@ export default function Dashboard() {
       </div>
 
       {/* Today's Checklist */}
-      <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
+      <div data-tutorial="checklist-section" className="bg-card border border-border rounded-2xl p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-semibold text-foreground">Today's Targets</h3>
@@ -738,6 +738,7 @@ export default function Dashboard() {
       {/* FAB */}
       <motion.button
         data-testid="button-fab-add"
+        data-tutorial="add-skill-btn"
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => { setEditSkill(null); setShowSkillModal(true); }}

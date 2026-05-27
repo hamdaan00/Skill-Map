@@ -1,0 +1,330 @@
+# 🔧 Replit Prompt — Tutorial, Email Verification Message & Guest Mode
+# Personal Skill Tracker — UX Improvement Sprint
+
+Add these 3 focused features to the existing app. Do not break any existing functionality.
+Preserve all current design language: dark navy, cyan accents, Sora font, glassmorphism cards.
+
+---
+
+## ✨ FEATURE 1 — First-Time App Tutorial (Interactive Walkthrough)
+
+Show this tutorial ONLY to first-time users — people who just completed onboarding
+or just verified their email and landed on the dashboard for the first time.
+
+Store `pst_tutorial_done: true` in localStorage after completion.
+Never show again once dismissed or completed.
+
+### Tutorial Style
+Use a **spotlight tooltip system** — not a modal that blocks everything.
+Each step highlights a specific UI element with:
+- A glowing cyan outline/ring around the target element
+- A floating tooltip card pointing to it
+- Dark overlay covering everything EXCEPT the highlighted element
+- Step counter: "Step 3 of 7"
+- Two buttons: **"← Back"** and **"Next →"**
+- A **"Skip Tutorial"** button (top right, subtle grey text)
+- Progress dots at the bottom of each tooltip
+
+### Tutorial Steps (7 steps total)
+
+**Step 1 — Welcome**
+- No spotlight — full centered overlay card
+- Large emoji: 🌟
+- Title: **"Welcome to your Skill Tracker!"**
+- Message: *"Let's take a quick 60-second tour so you know exactly where everything is. You can skip anytime."*
+- Button: **"Let's Go! →"**
+
+**Step 2 — The Dashboard**
+- Spotlight: the Dashboard nav item in sidebar
+- Tooltip title: **"🏠 Your Dashboard"**
+- Message: *"This is your home base. See your streak, today's targets, and all your skills at a glance every time you open the app."*
+
+**Step 3 — Adding a Skill**
+- Spotlight: the "Add Skill" button (+ button or FAB)
+- Tooltip title: **"➕ Add Your Skills"**
+- Message: *"Tap this to add any skill you want to track — Guitar, Python, Running, anything. You can add as many as you want."*
+
+**Step 4 — Today's Checklist**
+- Spotlight: the Today's Checklist section on dashboard
+- Tooltip title: **"✅ Today's Targets"**
+- Message: *"Every day, your scheduled skills show up here as a checklist. Check them off as you practice. Complete all of them to earn a streak! 🔥"*
+
+**Step 5 — The Skill Garden**
+- Spotlight: the Skill Garden nav item
+- Tooltip title: **"🌱 Your Skill Garden"**
+- Message: *"Each skill grows as a plant here. Practice regularly and it blossoms into a tree. Neglect it and it wilts. Keep your garden alive!"*
+
+**Step 6 — Focus Timer & Study Waves**
+- Spotlight: the Study Waves or Focus Timer nav item
+- Tooltip title: **"⏱️ Focus Tools"**
+- Message: *"Use the Focus Timer for Pomodoro sessions, or enter Study Waves for a fully immersive practice environment with ambient sounds."*
+
+**Step 7 — You're All Set**
+- No spotlight — full centered overlay card again
+- Large emoji: 🎉
+- Title: **"You're ready to grow!"**
+- Message: *"That's everything you need to know. Start by adding your first skill or checking today's targets. Your journey begins now."*
+- Single button: **"Start Tracking! 🚀"** (cyan, full width)
+- Confetti burst animation when this button is clicked
+
+### Tutorial Technical Notes
+
+```javascript
+// Spotlight implementation
+// 1. Get target element's bounding rect
+const rect = targetElement.getBoundingClientRect();
+
+// 2. Render a full-screen overlay with a transparent "hole" cut out
+// Use box-shadow trick for the spotlight effect:
+// box-shadow: 0 0 0 9999px rgba(0,0,0,0.75)
+// on a div positioned exactly over the target element
+
+// 3. Tooltip card positioned relative to the spotlight
+// Auto-flip: if element is in bottom half, show tooltip above; otherwise below
+```
+
+Tooltip card design:
+- Background: `rgba(10, 15, 30, 0.95)` with `border: 1px solid rgba(0,212,255,0.4)`
+- Cyan glow: `box-shadow: 0 0 20px rgba(0,212,255,0.2)`
+- Arrow pointer pointing toward the highlighted element
+- Max width: 300px
+- Smooth position transitions between steps: `transition: all 0.3s ease`
+
+Spotlight ring on target element:
+- `outline: 2px solid #00d4ff`
+- `box-shadow: 0 0 0 4px rgba(0,212,255,0.2), 0 0 30px rgba(0,212,255,0.3)`
+- Smooth pulse animation:
+```css
+@keyframes tutorialPulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(0,212,255,0.2), 0 0 30px rgba(0,212,255,0.3); }
+  50% { box-shadow: 0 0 0 8px rgba(0,212,255,0.1), 0 0 50px rgba(0,212,255,0.4); }
+}
+```
+
+Re-trigger tutorial option:
+- In Settings page, add a button: **"Replay Tutorial"**
+- Clicking it sets `pst_tutorial_done: false` and reloads the dashboard
+
+---
+
+## ✉️ FEATURE 2 — Clear Email Verification Message
+
+When a user signs up with email + password, Supabase sends a verification email.
+Right now users see nothing clear and get confused. Fix this with a beautiful,
+informative confirmation screen.
+
+### After Signup — Show a Dedicated Verification Screen
+
+Instead of redirecting to dashboard or showing a vague message, replace the auth
+form with a full **"Check Your Email"** screen:
+
+**Design:**
+- Large animated email icon: ✉️ (floating animation)
+- Headline: **"Check your inbox! 📬"** (white, 28px, Sora bold)
+- Subtext (clear and friendly):
+
+  *"We've sent a verification link to:"*
+  
+  **[user@email.com]** (shown in a cyan pill/badge)
+  
+  *"Click the link in that email to activate your account and start tracking your skills."*
+
+- A collapsible **"What if I don't see it?"** section:
+  - *"Check your Spam or Junk folder"*
+  - *"Make sure you typed your email correctly"*
+  - *"The link expires in 24 hours"*
+
+- **"Resend Email"** button:
+  - Ghost style button
+  - On click: calls `supabase.auth.resend({ type: 'signup', email })`
+  - Shows a toast: *"✅ Verification email resent!"*
+  - Disable button for 60 seconds after clicking to prevent spam
+  - Show countdown: *"Resend again in 45s"*
+
+- **"Wrong email? Go back"** link — returns to signup form
+
+- A subtle animated background: slow moving dots or particles in dark navy
+
+**Implementation:**
+```javascript
+// After supabase.auth.signUp() succeeds:
+// Check if email confirmation is required
+const { data, error } = await supabase.auth.signUp({ email, password });
+
+if (data?.user?.identities?.length === 0) {
+  // Email already registered
+  setError("This email is already registered. Try logging in instead.");
+} else if (data?.user && !data?.session) {
+  // Email confirmation required — show verification screen
+  setAuthStep("verify-email");
+  setSubmittedEmail(email);
+} else if (data?.session) {
+  // Email confirmation disabled — go straight to app
+  navigateToDashboard();
+}
+```
+
+**After user clicks the verification link in their email:**
+- Supabase redirects back to your app URL
+- Detect the verified session:
+```javascript
+supabase.auth.onAuthStateChange((event, session) => {
+  if (event === "SIGNED_IN" && session) {
+    // User just verified — show welcome message
+    setToast("🎉 Email verified! Welcome to SkillTracker!");
+    navigateToDashboard();
+  }
+});
+```
+
+**In Supabase dashboard — update the redirect URL:**
+1. Go to Supabase → Authentication → URL Configuration
+2. Set **Site URL** to your Replit app URL (e.g. `https://skill-tracker.yourname.repl.co`)
+3. Add to **Redirect URLs**: `https://skill-tracker.yourname.repl.co`
+
+This ensures the verification link brings users back to YOUR app, not the Supabase default page.
+
+---
+
+## 👤 FEATURE 3 — "Continue as Guest" Button
+
+Replace any "Skip for now" or "Skip" button on the auth/onboarding screen with a
+clearly labeled **"Continue as Guest"** button.
+
+### What Guest Mode Means
+- User skips login entirely
+- All data saves to localStorage only (no cloud sync)
+- User can use the full app but data is local only
+- A persistent subtle banner reminds them to create an account
+
+### "Continue as Guest" Button Design
+- Position: below the login/signup form, separated by a divider line with text **"or"**
+- Style: ghost button, full width, grey text
+- Label: **"Continue as Guest →"**
+- Subtext below button (very small, muted): *"Your data will be saved on this device only"*
+
+```jsx
+<div style={{ textAlign: "center", margin: "16px 0" }}>
+  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+    <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.08)" }} />
+    <span style={{ fontSize: 12, color: "#475569" }}>or</span>
+    <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.08)" }} />
+  </div>
+  <button className="btn-ghost" style={{ width: "100%", padding: "12px" }}
+    onClick={continueAsGuest}>
+    Continue as Guest →
+  </button>
+  <p style={{ fontSize: 11, color: "#475569", marginTop: 6 }}>
+    Your data will be saved on this device only
+  </p>
+</div>
+```
+
+### Guest Mode Banner
+Once inside the app as a guest, show a **slim persistent banner** at the very top
+of every page (below the navbar):
+
+```
+☁️  You're using SkillTracker as a guest. Create a free account to sync your data across devices.   [Create Account]
+```
+
+Banner design:
+- Height: 36px, slim
+- Background: `rgba(251, 191, 36, 0.08)` (subtle amber)
+- Border-bottom: `1px solid rgba(251, 191, 36, 0.2)`
+- Text: 12px, muted amber color `#d97706`
+- **"Create Account"** link: cyan, underlined, opens auth modal
+- A small **✕** to dismiss the banner for the current session
+  (store `pst_banner_dismissed: true` in sessionStorage so it hides until next visit)
+
+### Guest Mode Technical Implementation
+
+```javascript
+function continueAsGuest() {
+  // Set guest flag
+  localStorage.setItem("pst_is_guest", "true");
+  // Remove any existing auth session
+  // Navigate to onboarding (if first time) or dashboard
+  const onboarded = localStorage.getItem("pst_onboarded");
+  if (!onboarded) {
+    navigateTo("onboarding");
+  } else {
+    navigateTo("dashboard");
+  }
+}
+
+// Check if user is guest
+function isGuest() {
+  return localStorage.getItem("pst_is_guest") === "true" && !supabaseSession;
+}
+```
+
+When a guest clicks **"Create Account"** from the banner:
+- Open the auth modal/page
+- After successful signup + verification, **migrate their localStorage data to Supabase**:
+
+```javascript
+async function migrateGuestDataToCloud(userId) {
+  const guestSkills = loadData("pst_skills", []);
+  const guestSessions = loadData("pst_sessions", []);
+
+  if (guestSkills.length > 0) {
+    // Upload skills to Supabase
+    await supabase.from("skills").insert(
+      guestSkills.map(skill => ({ ...skill, user_id: userId, id: undefined }))
+    );
+    // Upload sessions
+    await supabase.from("sessions").insert(
+      guestSessions.map(session => ({ ...session, user_id: userId, id: undefined }))
+    );
+    // Clear guest flag
+    localStorage.removeItem("pst_is_guest");
+    // Show migration success toast
+    showToast("✅ Your guest data has been saved to your account!");
+  }
+}
+```
+
+---
+
+## 🎨 DESIGN CONSISTENCY RULES
+
+All 3 features must follow existing design:
+
+- Background: `#0a0f1e` dark navy
+- Primary accent: `#00d4ff` cyan
+- Font: Sora for headings, DM Sans for body
+- Cards: glassmorphism with backdrop blur
+- Animations: smooth fade-in + slide-up on mount
+- Toasts: top-right, auto dismiss after 3 seconds
+- All new buttons follow existing `.btn-primary` and `.btn-ghost` styles
+- Mobile responsive — all features work on small screens
+
+---
+
+## ✅ IMPLEMENTATION ORDER
+
+1. **Email Verification Screen** — fix this first, it affects every new user immediately
+2. **Continue as Guest button** — replaces all "Skip" buttons, simple change
+3. **Guest mode banner** — small persistent reminder for guest users
+4. **Guest → Account data migration** — when guest creates account
+5. **Tutorial system** — build last as it layers on top of the finished UI
+
+---
+
+## 🧪 TESTING CHECKLIST
+
+After implementing, verify:
+
+- [ ] New signup shows "Check your inbox" screen with the user's email displayed
+- [ ] "Resend Email" button works and shows 60s countdown
+- [ ] Verification link in email brings user back to the app (not Supabase's page)
+- [ ] "Continue as Guest" button appears on auth screen below the form
+- [ ] Guest users see the slim amber banner on every page
+- [ ] Banner can be dismissed with ✕
+- [ ] Guest data migrates to Supabase when guest creates an account
+- [ ] Tutorial shows automatically for first-time users only
+- [ ] Each tutorial step highlights the correct UI element
+- [ ] Tutorial can be skipped at any time
+- [ ] Tutorial can be replayed from Settings
+- [ ] All 3 features work on mobile screen sizes
