@@ -37,7 +37,14 @@ export default function AuthPage({ onAuth }: AuthPageProps) {
       setLoading(true);
       const { data, error: err } = await supabase.auth.signInWithPassword({ email, password });
       setLoading(false);
-      if (err) { setError(err.message); return; }
+      if (err) {
+        if (err.message.toLowerCase().includes("fetch") || err.message.toLowerCase().includes("network")) {
+          setError("Cannot reach the server. Your Supabase project may be paused — visit app.supabase.com to unpause it, then try again.");
+        } else {
+          setError(err.message);
+        }
+        return;
+      }
       if (data.user) {
         const n = data.user.user_metadata?.name || email.split("@")[0];
         if (!storage.getUser()) {
