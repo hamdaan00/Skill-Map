@@ -25,32 +25,35 @@ export default function AuthPage({ onAuth }: AuthPageProps) {
     setMessage("");
     if (!supabase) { setError("Supabase is not configured."); return; }
 
-    if (tab === "signup") {
-      if (password !== confirm) { setError("Passwords do not match."); return; }
-      if (password.length < 6) { setError("Password must be at least 6 characters."); return; }
-      setLoading(true);
-      const { error: err } = await supabase.auth.signUp({ email, password, options: { data: { name } } });
-      setLoading(false);
-      if (err) { setError(err.message); return; }
-      setMessage("Check your email to confirm your account, then log in.");
-    } else {
-      setLoading(true);
-      const { data, error: err } = await supabase.auth.signInWithPassword({ email, password });
-      setLoading(false);
-      if (err) {
-        if (err.message.toLowerCase().includes("fetch") || err.message.toLowerCase().includes("network")) {
-          setError("Cannot reach the server. Your Supabase project may be paused — visit app.supabase.com to unpause it, then try again.");
-        } else {
-          setError(err.message);
+    try {
+      if (tab === "signup") {
+        if (password !== confirm) { setError("Passwords do not match."); return; }
+        if (password.length < 6) { setError("Password must be at least 6 characters."); return; }
+        setLoading(true);
+        const { error: err } = await supabase.auth.signUp({ email, password, options: { data: { name } } });
+        setLoading(false);
+        if (err) { setError(err.message); return; }
+        setMessage("Check your email to confirm your account, then log in.");
+      } else {
+        setLoading(true);
+        const { data, error: err } = await supabase.auth.signInWithPassword({ email, password });
+        setLoading(false);
+        if (err) { setError(err.message); return; }
+        if (data.user) {
+          const n = data.user.user_metadata?.name || email.split("@")[0];
+          if (!storage.getUser()) {
+            storage.setUser({ name: n, avatar: "🧑‍💻", reminderTime: "08:00", reminderEnabled: false, theme: "dark" });
+          }
+          onAuth();
         }
-        return;
       }
-      if (data.user) {
-        const n = data.user.user_metadata?.name || email.split("@")[0];
-        if (!storage.getUser()) {
-          storage.setUser({ name: n, avatar: "🧑‍💻", reminderTime: "08:00", reminderEnabled: false, theme: "dark" });
-        }
-        onAuth();
+    } catch (thrown: unknown) {
+      setLoading(false);
+      const msg = thrown instanceof Error ? thrown.message : String(thrown);
+      if (msg.toLowerCase().includes("fetch") || msg.toLowerCase().includes("network") || msg.toLowerCase().includes("failed")) {
+        setError("Network error — could not reach the auth server. Check your internet connection or try again shortly.");
+      } else {
+        setError(msg || "Something went wrong. Please try again.");
       }
     }
   };
