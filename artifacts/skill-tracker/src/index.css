@@ -1,0 +1,334 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Sora:wght@100..800&display=swap');
+@import "tailwindcss";
+@import "tw-animate-css";
+@plugin "@tailwindcss/typography";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-card-border: hsl(var(--card-border));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-popover-border: hsl(var(--popover-border));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-chart-1: hsl(var(--chart-1));
+  --color-chart-2: hsl(var(--chart-2));
+  --color-chart-3: hsl(var(--chart-3));
+  --color-chart-4: hsl(var(--chart-4));
+  --color-chart-5: hsl(var(--chart-5));
+  --color-sidebar: hsl(var(--sidebar));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-sidebar-primary: hsl(var(--sidebar-primary));
+  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+  --color-sidebar-ring: hsl(var(--sidebar-ring));
+  --font-sans: var(--app-font-sans);
+  --font-serif: var(--app-font-serif);
+  --font-mono: var(--app-font-mono);
+  --font-heading: 'Sora', sans-serif;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* ── Default light ── */
+:root {
+  --background: 210 40% 96%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --card-border: 214 32% 91%;
+  --border: 214 32% 91%;
+  --primary: 191 100% 50%;
+  --primary-foreground: 222 47% 11%;
+  --secondary: 210 40% 92%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 210 40% 93%;
+  --muted-foreground: 215 25% 45%;
+  --accent: 191 100% 50%;
+  --accent-foreground: 222 47% 11%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --input: 214 32% 91%;
+  --ring: 191 100% 50%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --popover-border: 214 32% 91%;
+  --sidebar: 222 47% 14%;
+  --sidebar-foreground: 210 40% 92%;
+  --sidebar-border: 222 47% 20%;
+  --sidebar-primary: 191 100% 50%;
+  --sidebar-primary-foreground: 222 47% 11%;
+  --sidebar-accent: 222 47% 20%;
+  --sidebar-accent-foreground: 210 40% 92%;
+  --sidebar-ring: 191 100% 50%;
+  --chart-1: 191 100% 50%;
+  --chart-2: 274 58% 52%;
+  --chart-3: 145 63% 49%;
+  --chart-4: 30 85% 52%;
+  --chart-5: 330 85% 57%;
+  --radius: 1rem;
+  --app-font-sans: 'DM Sans', sans-serif;
+}
+
+/* ── Default dark (Midnight) ── */
+.dark {
+  --background: 222 47% 4%;
+  --foreground: 210 40% 92%;
+  --card: 222 47% 8%;
+  --card-foreground: 210 40% 92%;
+  --card-border: 222 47% 16%;
+  --border: 222 47% 16%;
+  --primary: 191 100% 50%;
+  --primary-foreground: 222 47% 4%;
+  --secondary: 222 47% 14%;
+  --secondary-foreground: 210 40% 85%;
+  --muted: 222 47% 12%;
+  --muted-foreground: 215 25% 55%;
+  --accent: 191 100% 50%;
+  --accent-foreground: 222 47% 4%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --input: 222 47% 18%;
+  --ring: 191 100% 50%;
+  --popover: 222 47% 8%;
+  --popover-foreground: 210 40% 92%;
+  --popover-border: 222 47% 16%;
+  --sidebar: 222 47% 6%;
+  --sidebar-foreground: 210 40% 85%;
+  --sidebar-border: 222 47% 14%;
+  --sidebar-primary: 191 100% 50%;
+  --sidebar-primary-foreground: 222 47% 4%;
+  --sidebar-accent: 222 47% 14%;
+  --sidebar-accent-foreground: 210 40% 85%;
+  --sidebar-ring: 191 100% 50%;
+  --chart-1: 191 100% 50%;
+  --chart-2: 274 58% 62%;
+  --chart-3: 145 63% 55%;
+  --chart-4: 30 85% 60%;
+  --chart-5: 330 85% 65%;
+}
+
+/* ══════════════════════════════════════════
+   SEASONAL / CUSTOM THEMES
+   Applied via data-theme on <html>
+   These override both :root and .dark
+══════════════════════════════════════════ */
+
+/* 🌙 Midnight (explicit, same as dark default) */
+html[data-theme="midnight"] {
+  --background: 222 47% 4%;
+  --foreground: 210 40% 92%;
+  --card: 222 47% 8%;
+  --card-foreground: 210 40% 92%;
+  --card-border: 222 47% 16%;
+  --border: 222 47% 16%;
+  --primary: 191 100% 50%;
+  --primary-foreground: 222 47% 4%;
+  --secondary: 222 47% 14%;
+  --secondary-foreground: 210 40% 85%;
+  --muted: 222 47% 12%;
+  --muted-foreground: 215 25% 55%;
+  --accent: 191 100% 50%;
+  --accent-foreground: 222 47% 4%;
+  --input: 222 47% 18%;
+  --ring: 191 100% 50%;
+  --popover: 222 47% 8%;
+  --popover-foreground: 210 40% 92%;
+  --popover-border: 222 47% 16%;
+  --sidebar: 222 47% 6%;
+  --sidebar-foreground: 210 40% 85%;
+  --sidebar-border: 222 47% 14%;
+  --sidebar-primary: 191 100% 50%;
+  --sidebar-primary-foreground: 222 47% 4%;
+  --sidebar-accent: 222 47% 14%;
+  --sidebar-accent-foreground: 210 40% 85%;
+  --sidebar-ring: 191 100% 50%;
+}
+
+/* ☀️ Daylight — clean white/cream */
+html[data-theme="daylight"] {
+  --background: 40 30% 97%;
+  --foreground: 220 25% 15%;
+  --card: 0 0% 100%;
+  --card-foreground: 220 25% 15%;
+  --card-border: 220 15% 88%;
+  --border: 220 15% 88%;
+  --primary: 217 91% 50%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 220 15% 93%;
+  --secondary-foreground: 220 25% 20%;
+  --muted: 220 15% 93%;
+  --muted-foreground: 220 15% 45%;
+  --accent: 217 91% 50%;
+  --accent-foreground: 0 0% 100%;
+  --input: 220 15% 88%;
+  --ring: 217 91% 50%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 220 25% 15%;
+  --popover-border: 220 15% 88%;
+  --sidebar: 220 25% 20%;
+  --sidebar-foreground: 0 0% 95%;
+  --sidebar-border: 220 20% 30%;
+  --sidebar-primary: 217 91% 60%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 220 20% 28%;
+  --sidebar-accent-foreground: 0 0% 95%;
+  --sidebar-ring: 217 91% 60%;
+}
+
+/* 🌸 Sakura — soft pink + white */
+html[data-theme="sakura"] {
+  --background: 340 30% 97%;
+  --foreground: 340 30% 15%;
+  --card: 0 0% 100%;
+  --card-foreground: 340 30% 15%;
+  --card-border: 340 40% 88%;
+  --border: 340 40% 88%;
+  --primary: 340 80% 60%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 340 30% 93%;
+  --secondary-foreground: 340 30% 20%;
+  --muted: 340 20% 93%;
+  --muted-foreground: 340 15% 50%;
+  --accent: 340 80% 60%;
+  --accent-foreground: 0 0% 100%;
+  --input: 340 30% 88%;
+  --ring: 340 80% 60%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 340 30% 15%;
+  --popover-border: 340 40% 88%;
+  --sidebar: 340 40% 18%;
+  --sidebar-foreground: 340 20% 92%;
+  --sidebar-border: 340 35% 28%;
+  --sidebar-primary: 340 80% 65%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 340 35% 26%;
+  --sidebar-accent-foreground: 340 20% 92%;
+  --sidebar-ring: 340 80% 65%;
+}
+
+/* ❄️ Winter Frost — deep blue + silver */
+html[data-theme="winter"] {
+  --background: 220 35% 6%;
+  --foreground: 210 30% 88%;
+  --card: 220 35% 10%;
+  --card-foreground: 210 30% 88%;
+  --card-border: 220 30% 20%;
+  --border: 220 30% 20%;
+  --primary: 195 70% 65%;
+  --primary-foreground: 220 35% 6%;
+  --secondary: 220 30% 15%;
+  --secondary-foreground: 210 30% 80%;
+  --muted: 220 30% 13%;
+  --muted-foreground: 210 20% 55%;
+  --accent: 195 70% 65%;
+  --accent-foreground: 220 35% 6%;
+  --input: 220 30% 18%;
+  --ring: 195 70% 65%;
+  --popover: 220 35% 10%;
+  --popover-foreground: 210 30% 88%;
+  --popover-border: 220 30% 20%;
+  --sidebar: 220 40% 5%;
+  --sidebar-foreground: 210 25% 82%;
+  --sidebar-border: 220 35% 14%;
+  --sidebar-primary: 195 70% 65%;
+  --sidebar-primary-foreground: 220 35% 6%;
+  --sidebar-accent: 220 35% 14%;
+  --sidebar-accent-foreground: 210 25% 82%;
+  --sidebar-ring: 195 70% 65%;
+}
+
+/* 🔥 Ember — dark charcoal + warm orange/red */
+html[data-theme="ember"] {
+  --background: 20 8% 5%;
+  --foreground: 30 25% 88%;
+  --card: 20 8% 9%;
+  --card-foreground: 30 25% 88%;
+  --card-border: 20 15% 18%;
+  --border: 20 15% 18%;
+  --primary: 25 90% 55%;
+  --primary-foreground: 20 8% 5%;
+  --secondary: 20 10% 15%;
+  --secondary-foreground: 30 20% 80%;
+  --muted: 20 8% 12%;
+  --muted-foreground: 25 15% 52%;
+  --accent: 25 90% 55%;
+  --accent-foreground: 20 8% 5%;
+  --input: 20 12% 18%;
+  --ring: 25 90% 55%;
+  --popover: 20 8% 9%;
+  --popover-foreground: 30 25% 88%;
+  --popover-border: 20 15% 18%;
+  --sidebar: 20 10% 4%;
+  --sidebar-foreground: 30 20% 82%;
+  --sidebar-border: 20 12% 14%;
+  --sidebar-primary: 25 90% 55%;
+  --sidebar-primary-foreground: 20 8% 5%;
+  --sidebar-accent: 20 12% 14%;
+  --sidebar-accent-foreground: 30 20% 82%;
+  --sidebar-ring: 25 90% 55%;
+}
+
+/* 🌊 Ocean — deep sea blue + aqua */
+html[data-theme="ocean"] {
+  --background: 200 40% 5%;
+  --foreground: 190 30% 88%;
+  --card: 200 40% 9%;
+  --card-foreground: 190 30% 88%;
+  --card-border: 200 35% 18%;
+  --border: 200 35% 18%;
+  --primary: 180 80% 45%;
+  --primary-foreground: 200 40% 5%;
+  --secondary: 200 35% 14%;
+  --secondary-foreground: 190 25% 80%;
+  --muted: 200 35% 12%;
+  --muted-foreground: 190 20% 52%;
+  --accent: 180 80% 45%;
+  --accent-foreground: 200 40% 5%;
+  --input: 200 35% 18%;
+  --ring: 180 80% 45%;
+  --popover: 200 40% 9%;
+  --popover-foreground: 190 30% 88%;
+  --popover-border: 200 35% 18%;
+  --sidebar: 200 45% 4%;
+  --sidebar-foreground: 190 25% 82%;
+  --sidebar-border: 200 40% 13%;
+  --sidebar-primary: 180 80% 45%;
+  --sidebar-primary-foreground: 200 40% 5%;
+  --sidebar-accent: 200 40% 13%;
+  --sidebar-accent-foreground: 190 25% 82%;
+  --sidebar-ring: 180 80% 45%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply font-sans antialiased bg-background text-foreground selection:bg-primary/30;
+    transition: background-color 0.4s ease, color 0.4s ease;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading tracking-tight;
+  }
+}

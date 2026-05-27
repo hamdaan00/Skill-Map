@@ -1,0 +1,435 @@
+# 🔧 Replit Add-On Prompt — Personal Skill Tracker (Feature Expansion)
+
+This prompt extends the existing Personal Skill Tracker app with advanced features.
+All existing architecture, design language, localStorage keys, and UI conventions must be preserved.
+Only ADD to what exists — do not remove or replace any previously built feature.
+
+---
+
+## 🧠 PLANNING & CONSISTENCY FEATURES
+
+---
+
+### 7. 📅 Weekly Review Mode
+
+- Every **Sunday**, automatically show a full-screen "Week in Review" overlay when the app is opened.
+- The review screen should display:
+  - Total practice sessions logged this week
+  - Skills practiced vs skipped
+  - Longest streak achieved
+  - Best performing skill of the week (most sessions logged)
+  - Mood trend summary (average mood across the week — see Feature 13)
+  - A motivational closing message like: *"Great week, [Name]! You practiced X times. Keep it up! 🚀"*
+- Include a **"Set Next Week's Intentions"** section at the bottom: a simple text input where users write a short goal for the upcoming week. Store in localStorage as `pst_weekly_intention`.
+- The weekly review card should have a premium feel — large typography, glowing border, animated stats that count up on mount.
+- Add a **"View Past Reviews"** button that opens a history of all previous weekly reviews stored in `pst_weekly_reviews` (array of weekly summaries).
+- If the user dismisses it, they can re-open it from the dashboard via a "📅 This Week's Review" button that appears only on Sundays.
+
+---
+
+### 8. 🗓️ Skill Scheduling
+
+- When adding or editing a skill, allow the user to assign **specific practice days** (checkboxes: Mon / Tue / Wed / Thu / Fri / Sat / Sun).
+- Store scheduled days inside the skill object as `scheduledDays: ["Mon", "Wed", "Fri"]`.
+- The **Dashboard "Today's Targets"** section should only show skills scheduled for the current day of the week — reducing cognitive overload.
+- On the Skill Card, display the scheduled days as small colored pill badges below the skill name.
+- In the **Progress > Monthly Consistency Calendar**, mark days where a skill was scheduled but not practiced in a soft red/amber — distinguishing "scheduled miss" from "not scheduled".
+- Add a **"This Week's Schedule"** mini-widget on the dashboard: a horizontal 7-day strip showing which skills are due each day. Clicking a day shows that day's skills in a tooltip/popover.
+
+---
+
+### 9. ⏱️ Focus Timer (Pomodoro)
+
+- Add a **Focus Timer** accessible from each Skill Card via a timer icon button 🕐.
+- Timer has two modes selectable via toggle:
+  - **Pomodoro Mode**: 25 min work → 5 min break (repeat). Show cycle count.
+  - **Custom Mode**: User sets their own duration (5–120 minutes via a slider).
+- Timer UI should be a **large circular countdown ring** (SVG stroke-dasharray animation) with:
+  - Time remaining in large digits at the center
+  - Skill name shown below
+  - Start / Pause / Reset controls
+  - Session mode label (Focus / Break)
+- When a focus session completes:
+  - Play a soft chime sound (use Web Audio API to generate a tone — no external audio files needed).
+  - Auto-log the practice session to that skill (duration = timer duration, notes = "Focus session via Pomodoro timer").
+  - Show a small toast: *"Great focus session! Practice logged for [Skill Name] ✅"*
+  - Increment streak if applicable.
+- Track total Pomodoro sessions in localStorage as `pst_pomodoro_count`. Add a badge:
+  - **"Deep Focus"** 🧘 — Complete 5 Pomodoro sessions total.
+  - **"Flow State"** 🌊 — Complete 20 Pomodoro sessions total.
+- The timer should continue running if the user navigates to another page (use a global timer context/state).
+- Show a small **persistent timer pill** in the top navbar when a timer is active, so the user always sees the countdown.
+
+---
+
+## 🎮 GAMIFICATION FEATURES
+
+---
+
+### 10. ⭐ Skill XP & Levels
+
+- Each skill now has an **XP (experience points)** system alongside the existing progress percentage.
+- XP is earned by logging practice sessions:
+  - Each practice session = **+10 XP base**
+  - Bonus XP modifiers:
+    - Session duration > 30 min = **+5 bonus XP**
+    - Mood logged as "On Fire" 🔥 = **+3 bonus XP**
+    - Completing a daily target = **+5 bonus XP**
+    - Maintaining streak (3+ days) = **+2 bonus XP per session**
+- XP thresholds for each level:
+
+  | Level | Title | XP Required |
+  |---|---|---|
+  | 1 | Beginner | 0 XP |
+  | 2 | Apprentice | 50 XP |
+  | 3 | Skilled | 150 XP |
+  | 4 | Advanced | 350 XP |
+  | 5 | Expert | 700 XP |
+  | 6 | Master | 1200 XP |
+
+- On each **Skill Card**, show:
+  - Current level title with a colored badge
+  - XP progress bar toward next level (e.g., "230 / 350 XP to Advanced")
+  - Level number in a small circle icon on the card corner
+- When a skill levels up, trigger a **level-up animation**: the card border glows, a "LEVEL UP! ⭐" banner slides across the card, and a satisfying sound plays.
+- Add new badges for leveling:
+  - **"First Rank"** 🥉 — Any skill reaches Level 2
+  - **"Rising Star"** 🌠 — Any skill reaches Level 4
+  - **"Grandmaster"** 👑 — Any skill reaches Level 6
+
+---
+
+### 11. 🏁 Weekly Challenges
+
+- Add a **"Challenges"** section on the dashboard (collapsible card) and a full **Challenges page** accessible from the sidebar (🏁 Challenges).
+- Generate **3 new challenges every Monday** and store them in `pst_challenges`.
+- Challenge types (rotate randomly):
+  - *"Practice any skill for 5 days this week"*
+  - *"Log 3 Pomodoro sessions in one day"*
+  - *"Complete all daily targets on 3 different days"*
+  - *"Practice a skill you haven't touched in 5+ days"*
+  - *"Reach Level 3 in any skill this week"*
+  - *"Log a practice session with mood 'On Fire' 🔥 3 times"*
+  - *"Add a new skill and practice it at least twice"*
+  - *"Achieve a 5-day streak"*
+- Each challenge card shows:
+  - Challenge description
+  - Progress tracker (e.g., "3 / 5 days")
+  - Reward badge preview (greyed out until earned)
+  - Days remaining until Sunday
+  - A glowing green **"COMPLETED"** stamp when done
+- Completing a challenge awards a unique **Challenge Badge** with the week number (e.g., "Week 3 Champion 🏁").
+- Store completed challenge history in `pst_challenge_history`.
+
+---
+
+### 12. ⚔️ Skill Duels (Friend Challenge)
+
+- Add a **"Duel"** button on each Skill Card.
+- When clicked, open a **"Create Duel"** modal where the user:
+  1. Sets the skill being dueled
+  2. Sets the duel duration (3, 5, or 7 days)
+  3. Sets the goal metric (most sessions logged OR most XP earned)
+  4. Clicks **"Generate Duel Link"** — creates a shareable URL like `?duel=abc123` with duel params encoded in the URL hash/query string (no backend needed — use URL encoding).
+- When another user opens the duel link:
+  - They see a **"You've been challenged!"** screen showing the challenger's stats.
+  - They click **"Accept Duel"** to start tracking their side.
+  - Both users track progress locally; the duel compares on honor system.
+- On the **Achievements page**, show an **"Active Duels"** section listing ongoing duels with countdown timers.
+- When duel time expires, show a **"Duel Result"** screen:
+  - Winner gets a **"Duel Victor" ⚔️** badge.
+  - Loser gets a **"Good Fight" 🤝** badge.
+- Store duel state in `pst_duels`.
+
+---
+
+## 📊 DEEPER INSIGHTS FEATURES
+
+---
+
+### 13. 🕐 Best Time of Day Analytics
+
+- When logging a practice session, **automatically record the time of day** (hour) of the log.
+- On the **Progress page**, add a new section: **"Your Peak Practice Hours"**.
+- Display a **24-hour heatmap bar** (horizontal bar divided into 24 segments, colored by session frequency) showing when the user most often practices.
+- Below the heatmap, show an insight card:
+  - *"🌙 You practice most at 9 PM — that's your peak focus time!"*
+  - *"⚡ Your reminder is set for 6 PM. Consider shifting it to 8:30 PM to match your natural rhythm."*
+- Also show a breakdown per skill: each skill's most common practice hour.
+- Store session timestamps in existing `pst_sessions` — add `loggedAt: ISO timestamp` field to each session object.
+
+---
+
+### 14. 📉 Consistency Score
+
+- Calculate a **Consistency Score (0–100)** for each user, updated daily.
+- Formula based on weighted factors:
+  - Streak length (30% weight)
+  - % of scheduled days practiced this month (30% weight)
+  - % of daily targets completed this week (20% weight)
+  - Average sessions per week over last 4 weeks (20% weight)
+- Display the score prominently on the **Dashboard** as a large circular gauge (SVG arc) with:
+  - Score number in the center
+  - Color: Red (0–40), Amber (41–70), Green (71–100)
+  - Label below: *"Consistency Score"*
+  - Tooltip on hover: breakdown of each factor's contribution
+- Also show score history as a small sparkline chart (last 30 days) below the gauge.
+- Add score to `pst_consistency_history` array (one entry per day).
+- Badge: **"Rock Solid"** 💎 — Maintain a score above 80 for 7 consecutive days.
+
+---
+
+### 15. ⚠️ Skill Decay Warning
+
+- Track the **last practiced date** for each skill (already in skill object).
+- If a skill has not been practiced in **5 or more days**:
+  - The Skill Card visually **fades** (reduce opacity to 0.6, add a desaturated filter).
+  - Show a pulsing amber warning badge on the card: *"⚠️ Getting Rusty!"*
+  - If not practiced in **10+ days**, the badge turns red: *"🔴 Skill Decaying!"*
+- On the dashboard, show a **"Skills Needing Attention"** section at the top (only visible when at least one skill is decaying) listing rusty skills with a "Practice Now" shortcut button.
+- Send a browser notification (if enabled) when a skill hits 5 days without practice: *"⚠️ Your [Skill Name] skill is getting rusty! Log a session to keep it sharp."*
+- In the **Progress page**, add a "Skill Health" section showing all skills color-coded by recency: Green (practiced within 2 days), Yellow (3–5 days), Red (5+ days).
+
+---
+
+## 🤝 SOCIAL & SHARING FEATURES
+
+---
+
+### 16. 🖼️ Shareable Progress Cards
+
+- Add a **"Share My Progress"** button on the Dashboard and Achievements page.
+- When clicked, generate a **beautiful shareable card** rendered as a canvas element (use `html2canvas` library) showing:
+  - App logo + user name + avatar emoji
+  - Current streak with flame icon
+  - Top 3 skills with their level and progress
+  - Total badges earned
+  - Consistency score gauge
+  - A motivational tagline at the bottom: *"Tracking my growth with Personal Skill Tracker 🚀"*
+- Card design: dark gradient background, glowing elements, premium feel. Match the app's design language.
+- Buttons below the preview:
+  - **"Download as PNG"** — saves the card image to device
+  - **"Copy to Clipboard"** — copies the image for pasting
+- Card dimensions: 1080×1080px (square, optimized for Instagram/WhatsApp).
+- Install `html2canvas` via npm.
+
+---
+
+### 17. 🔗 Public Profile Link
+
+- Add an optional **"Public Profile"** toggle in Settings.
+- When enabled, generate a unique profile URL using a hash of the user's name + creation date stored in `pst_profile_id`.
+- The public profile page (route: `/profile/:id`) shows a read-only view:
+  - User name and avatar
+  - Skills list with progress bars (no edit controls)
+  - Badge showcase (only unlocked badges)
+  - Current streak and consistency score
+  - A "Follow Their Journey" message encouraging the viewer to start their own tracker
+- The public profile pulls its data from the URL (encode user's public data as a compressed base64 JSON in the URL hash — no backend needed).
+- In Settings, show the shareable link with a **"Copy Link"** button.
+- The public profile page should be beautiful and standalone — it should work even for someone who has never used the app.
+
+---
+
+### 18. 👥 Accountability Partner
+
+- In Settings, add an **"Accountability Partner"** section.
+- User can generate an **"Invite Link"** for their accountability partner.
+- The invite link (`?partner=base64encodeddata`) encodes the user's:
+  - Name and avatar
+  - Current streak
+  - Active skills list (names only)
+  - Public profile ID
+- When a partner opens the link:
+  - They see a **"Connect as Accountability Partner"** page showing the inviter's stats.
+  - They click **"Connect"** to save the partner's data locally in `pst_partner`.
+- Once connected, the Dashboard shows an **"Accountability Partner"** widget card:
+  - Partner's name and avatar
+  - Their streak (last synced — shown as a snapshot from invite data, not live)
+  - Last sync date
+  - **"Send a Cheer 🎉"** button — copies a pre-written motivational message to clipboard: *"Hey! Just checking in — keep up your streak! 💪 Your accountability partner is rooting for you."*
+  - **"Update Partner Data"** button — opens a text field to paste new partner data (partner re-shares their updated invite link).
+- Note: This is intentionally offline/async — no real-time backend. Partners manually share updated links to sync. Make this clearly explained in the UI with a note: *"Sync manually by sharing your updated invite link."*
+
+---
+
+## 🎨 EXPERIENCE & DELIGHT FEATURES
+
+---
+
+### 19. 📓 Skill Journal
+
+- Each Skill Card gets a **"Journal 📓"** tab/button alongside the existing "Log Practice" button.
+- Clicking it opens a **Skill Journal drawer** (slides in from the right) showing:
+  - A chronological list of all journal entries for that skill
+  - Each entry shows: date, mood emoji, and the journal text
+  - An **"Add Entry"** button at the top
+- The "Add Entry" form has:
+  - Date (auto today)
+  - Mood picker (see Feature 20)
+  - A rich text area for free-form reflection (plain text, no markdown needed)
+  - Optional: link to a practice session log
+- Journal entries are stored in `pst_journal` as an array: `{ skillId, date, mood, text, sessionId? }`.
+- On the **Progress page**, add a **"Recent Journal Entries"** section showing the last 3 entries across all skills with skill name tag, date, and a snippet.
+- Badge: **"Reflective Learner"** 🪞 — Write 10 journal entries total.
+
+---
+
+### 20. 😊 Mood Tracking
+
+- Before (or during) logging a practice session, show a **Mood Picker** row with 5 emoji options:
+
+  | Emoji | Label | Value |
+  |---|---|---|
+  | 😴 | Exhausted | 1 |
+  | 😐 | Okay | 2 |
+  | 😊 | Good | 3 |
+  | 💪 | Motivated | 4 |
+  | 🔥 | On Fire | 5 |
+
+- Store the mood value in each session log object.
+- On the **Progress page**, add a **"Mood vs. Performance"** chart (dual-axis line chart):
+  - Left Y-axis: Average mood score per day
+  - Right Y-axis: Number of sessions per day
+  - X-axis: Last 14 days
+  - Overlapping lines show correlation between mood and productivity
+- Below the chart, show an insight: *"You log 2x more sessions when you're feeling Motivated 💪 or better. Your mood dips on Wednesdays — consider lighter targets that day."*
+- On the dashboard, show a **"Today's Mood"** button (if no session logged yet today) — quick mood check-in that also stores to `pst_mood_log`.
+- Average mood score shown as a small emoji indicator in the weekly review.
+
+---
+
+### 21. 🎨 Seasonal Themes
+
+- Add a **"Theme"** section in Settings with the following theme options (beyond dark/light):
+
+  | Theme | Trigger / Description |
+  |---|---|
+  | 🌙 Midnight (default) | Dark navy — always available |
+  | ☀️ Daylight | Clean white/cream light mode |
+  | 🌸 Sakura | Soft pink + white, spring feel |
+  | 🎄 Winter Frost | Deep blue + silver + snowflake accents |
+  | 🌙 Ramadan | Deep teal + gold crescent accents |
+  | 🔥 Ember | Dark charcoal + warm orange/red accents |
+  | 🌊 Ocean | Deep sea blue + aqua + wave animations |
+
+- Each theme changes: background color, accent colors, card borders, and adds a subtle **background pattern/texture** (CSS-generated geometric or organic pattern using SVG backgrounds or CSS gradients — no external images).
+- Store selected theme in `pst_theme`.
+- Apply theme by swapping a `data-theme` attribute on the root `<html>` element, controlled by CSS variables.
+- Theme switching should animate smoothly (CSS transition on all color variables, 400ms ease).
+- **Auto Seasonal Theme**: Add a toggle *"Auto-match season"* — if enabled, automatically applies Winter Frost (Dec–Feb), Sakura (Mar–May), Ocean (Jun–Aug), Ember (Sep–Nov).
+
+---
+
+### 22. 🔊 Sound Design
+
+- Add an optional **Sound Effects** system (toggle in Settings: ON by default).
+- Use the **Web Audio API** to generate all sounds programmatically — zero external audio files.
+- Implement the following sounds:
+
+  | Event | Sound Description |
+  |---|---|
+  | Complete a daily target ✅ | Soft ascending chime (3 notes: C-E-G) |
+  | Unlock a badge 🏆 | Triumphant fanfare (5-note ascending arpeggio) |
+  | Skill level up ⭐ | Rising synth sweep + sparkle |
+  | Log a practice session | Gentle single "ding" |
+  | Start Focus Timer ⏱️ | Soft low tone (session start) |
+  | Focus Timer complete | Three descending bells |
+  | All targets completed 🎉 | Full celebratory jingle (8 notes) |
+  | Navigation click | Very subtle tick (5ms, barely audible) |
+  | Streak milestone | Rhythmic beat pattern |
+
+- Each sound is a short Web Audio API tone sequence (oscillator + gain + envelope).
+- Settings page has a **Sound Effects** toggle with a **"Test Sound"** button.
+- Store preference in `pst_sound_enabled`.
+- Sound must never autoplay on page load — only triggered by user interaction.
+
+---
+
+## 📦 UPDATED DATA SCHEMA
+
+Add the following new localStorage keys to the existing schema:
+
+```
+pst_weekly_intention     — string (this week's intention text)
+pst_weekly_reviews       — array of weekly review objects
+pst_challenges           — current week's 3 challenge objects
+pst_challenge_history    — array of all completed challenges
+pst_duels                — array of active/completed duel objects
+pst_consistency_history  — array of { date, score } objects
+pst_partner              — accountability partner data object
+pst_journal              — array of journal entry objects
+pst_mood_log             — array of { date, mood } daily mood check-ins
+pst_theme                — string (current theme name)
+pst_sound_enabled        — boolean
+pst_profile_id           — string (unique public profile hash)
+pst_pomodoro_count       — number (total pomodoro sessions completed)
+```
+
+Also update existing `pst_sessions` entries to include:
+```
+loggedAt: ISO timestamp string   (time of day analytics)
+mood: number 1–5                 (mood at time of logging)
+xpEarned: number                 (XP awarded for this session)
+```
+
+Update existing `pst_skills` entries to include:
+```
+scheduledDays: array of day strings (e.g. ["Mon", "Wed", "Fri"])
+xp: number                          (total XP accumulated)
+level: number 1–6                   (current level)
+```
+
+---
+
+## 🧭 UPDATED NAVIGATION SIDEBAR
+
+Expand the existing sidebar to include all new pages:
+
+- 🏠 Dashboard
+- 📈 Progress
+- 🎯 Targets
+- 🏁 Challenges *(new)*
+- 🏆 Achievements
+- ⚔️ Duels *(new)*
+- ⚙️ Settings
+
+---
+
+## 🎯 UPDATED BADGE TABLE
+
+Add these new badges to the existing 12:
+
+| Badge | Icon | Unlock Condition |
+|---|---|---|
+| Deep Focus | 🧘 | Complete 5 Pomodoro sessions |
+| Flow State | 🌊 | Complete 20 Pomodoro sessions |
+| First Rank | 🥉 | Any skill reaches Level 2 |
+| Rising Star | 🌠 | Any skill reaches Level 4 |
+| Grandmaster | 👑 | Any skill reaches Level 6 |
+| Rock Solid | 💎 | Consistency score above 80 for 7 days |
+| Week 1 Champion | 🏁 | Complete first weekly challenge |
+| Duel Victor | ⚔️ | Win a Skill Duel |
+| Good Fight | 🤝 | Complete a Skill Duel (win or lose) |
+| Reflective Learner | 🪞 | Write 10 journal entries |
+| Mood Master | 😊 | Log mood for 14 consecutive days |
+
+---
+
+## ✅ IMPLEMENTATION NOTES
+
+- All new features must match the existing design language: dark navy base, cyan accents, gold highlights, Sora + DM Sans fonts, glassmorphism cards, Framer Motion animations.
+- All new pages must have smooth Framer Motion page transitions consistent with existing routes.
+- All new modals must use the existing backdrop blur + slide-in animation pattern.
+- New localStorage keys must be initialized safely with null-checks to avoid breaking existing data.
+- Responsive layout required on all new pages — mobile-first.
+- Sound effects must only trigger after first user interaction (browser autoplay policy compliance).
+- The `html2canvas` package must be installed for the Shareable Progress Cards feature.
+- No external audio files — all sounds via Web Audio API only.
+- No backend required — all social/sharing features use URL encoding and localStorage only.
+
+---
+
+## 🏁 FINAL GOAL
+
+After implementing all features, the app should feel like a **premium, all-in-one personal development companion** — combining the habit tracking of Habitica, the analytics depth of Notion, the gamification of Duolingo, and the clean aesthetics of a modern SaaS product. Every interaction should feel intentional, rewarding, and delightful.

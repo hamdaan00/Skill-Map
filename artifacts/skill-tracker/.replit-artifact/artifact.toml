@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Personal Skill Tracker"
+version = "1.0.0"
+id = "artifacts/skill-tracker"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24477
+
+[services.development]
+run = "pnpm --filter @workspace/skill-tracker run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/skill-tracker", "run", "build" ]
+publicDir = "artifacts/skill-tracker/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24477"
+BASE_PATH = "/"

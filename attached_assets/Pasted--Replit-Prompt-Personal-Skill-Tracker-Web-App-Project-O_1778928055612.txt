@@ -1,0 +1,218 @@
+# 🚀 Replit Prompt — Personal Skill Tracker Web App
+
+## Project Overview
+
+Build a full-stack **Personal Skill Tracker** web application that helps users monitor and manage
+their personal skill development in an organized, motivating, and visually engaging way. The app
+acts as a centralized platform where learners can track skills, visualize growth, hit daily targets,
+and stay motivated through badges, streaks, and personalized dashboards.
+
+---
+
+## Tech Stack
+
+- **Frontend**: React.js (with hooks)
+- **Backend**: Node.js + Express
+- **Database**: SQLite (via better-sqlite3) or localStorage for persistence
+- **Styling**: Tailwind CSS
+- **Charts**: Recharts or Chart.js
+- **Animations**: Framer Motion
+- **Notifications**: Browser Notification API + in-app toast system
+
+---
+
+## Design Language
+
+- **Theme**: Dark mode by default with a deep navy/midnight base (`#0A0F1E`), accent color electric
+  cyan (`#00D4FF`), and warm gold highlights (`#FFB830`) for achievements.
+- **Font**: Use `"Sora"` (Google Fonts) for headings and `"DM Sans"` for body text.
+- **Style**: Modern, glassmorphism cards with subtle blur and border glow effects. Smooth
+  micro-animations on all interactions. Rounded corners (16–24px). Generous spacing.
+- **Animations**: Page transitions with Framer Motion, card entrance animations (staggered
+  fade-up), hover lift effects on skill cards, confetti burst on badge unlock.
+
+---
+
+## Core Features to Build
+
+---
+
+### 1. 🔔 Daily Personalized Reminders
+
+- On first launch, ask the user to set a **daily reminder time** (e.g., 6:00 PM) for skill
+  practice.
+- Store preference in localStorage.
+- Use the **Browser Notification API** to fire a reminder notification at the set time with the
+  message: `"Hey [Name]! Time to practice your skills. Keep your streak alive! 🔥"`
+- Show a persistent **in-app banner/toast** if notifications are not enabled, prompting the user
+  to allow them.
+- Include a **"Reminders" settings section** in the profile/settings page where the user can
+  update the reminder time and toggle it on/off.
+
+---
+
+### 2. 📊 Personalized Dashboard
+
+The dashboard is the home screen. It should feel alive and personal. Include:
+
+- **Welcome Header**: `"Good [Morning/Afternoon/Evening], [Name]! 👋"` based on current time.
+- **Daily Motivation Quote** (see Feature 3).
+- **Streak Counter**: Show current practice streak with a flame icon 🔥. Reset if user misses a
+  day.
+- **Overview Stats Row**: Four glassmorphism stat cards showing:
+  - Total Skills Tracked
+  - Skills Completed This Week
+  - Current Streak (days)
+  - Badges Earned
+- **Skill Cards Grid**: Each skill displayed as a card with name, category, a mini progress bar,
+  last practiced date, and a "Log Practice" button.
+- **Weekly Activity Heatmap**: A 7-column grid (Mon–Sun) showing practice activity for the
+  current week, color-coded by intensity (like GitHub contributions).
+- **Quick Add Skill** floating action button (+) in the bottom right.
+
+---
+
+### 3. 💬 Daily Motivation (Changes Every Open)
+
+- Display one motivational quote per app session on the dashboard.
+- Maintain a hardcoded list of at least **50 unique motivational quotes** specifically about
+  learning, consistency, and skill-building (e.g., from figures like Bruce Lee, Einstein, James
+  Clear, etc.).
+- Each time the app is opened/refreshed, pick a **random quote** from the list (ensure it's
+  different from the last shown by tracking in localStorage).
+- Display the quote in a stylish **frosted glass quote card** with large quotation mark decoration,
+  the quote text, and the author name.
+- Add a "New Quote" button (refresh icon) to manually cycle to the next one with a smooth
+  fade-in animation.
+
+---
+
+### 4. 📈 Progress Charts
+
+Build a dedicated **"Progress" page** with the following charts:
+
+- **Skill Progress Bar Chart** (Recharts BarChart): X-axis = skill names, Y-axis = progress
+  percentage (0–100%). Color bars with gradient fill.
+- **Weekly Practice Line Chart** (Recharts LineChart): Show number of practice sessions per day
+  over the last 7 days. One line per top-3 most-practiced skills.
+- **Category Pie/Donut Chart** (Recharts PieChart): Breakdown of skills by category (e.g.,
+  Tech, Music, Fitness, Language, Art).
+- **Monthly Consistency Calendar**: A grid of the current month showing which days had practice
+  logged. Green = practiced, grey = missed, today = highlighted with cyan glow.
+- All charts should be animated on mount (Recharts animation props) and responsive.
+
+---
+
+### 5. 🎯 Daily Targets
+
+- Each skill can have a **daily target** set during creation (e.g., "Practice 30 minutes" or
+  "Complete 10 exercises").
+- On the dashboard, show a **"Today's Targets"** section: a vertical checklist of daily targets
+  for all active skills.
+- Each target item shows: skill name, target description, and a **circular progress indicator**
+  or checkbox to mark as done.
+- When all targets are completed for the day, show a **celebration animation** (confetti or
+  glowing banner): `"🎉 All targets hit today! Amazing work, [Name]!"`
+- Targets reset at **midnight** daily (use date comparison in localStorage).
+- Show percentage of today's targets completed in the dashboard Overview Stats row.
+
+---
+
+### 6. 🏆 Achievement Badges
+
+- Build an **"Achievements" page** with a badge gallery.
+- Include at least **12 badges** with icons, names, and unlock conditions:
+
+  | Badge | Icon | Unlock Condition |
+  |---|---|---|
+  | First Step | 👶 | Add your first skill |
+  | On Fire | 🔥 | Reach a 3-day streak |
+  | Week Warrior | ⚔️ | Complete a 7-day streak |
+  | Monthly Master | 🏅 | Complete a 30-day streak |
+  | Skill Collector | 📚 | Track 5+ skills |
+  | Variety Pack | 🎨 | Add skills in 3 different categories |
+  | Perfect Day | ✅ | Complete all daily targets in one day |
+  | Perfect Week | 🌟 | Complete all targets every day for 7 days |
+  | Halfway Hero | 💪 | Reach 50% progress on any skill |
+  | Level Up | 🚀 | Reach 100% progress on any skill |
+  | Dedicated | 🎯 | Log practice 10 times total |
+  | Legend | 🏆 | Earn all other badges |
+
+- Locked badges appear **greyscale and blurred**. Unlocked badges glow with gold border and
+  show unlock date.
+- When a new badge is unlocked, show a **full-screen animated popup** with confetti and the
+  badge details.
+- Show badge count on the dashboard stats card.
+
+---
+
+## Additional Pages / Navigation
+
+Build a **sidebar navigation** (collapsible on mobile) with:
+
+- 🏠 Dashboard
+- 📈 Progress
+- 🎯 Targets
+- 🏆 Achievements
+- ⚙️ Settings
+
+**Settings Page** should include:
+- Edit name and profile avatar (emoji picker)
+- Reminder time selector + toggle
+- Theme toggle (dark/light)
+- Reset all data button (with confirmation modal)
+
+---
+
+## Skill Management (CRUD)
+
+- **Add Skill Modal** (triggered by FAB or sidebar button): Fields: Skill Name, Category
+  (dropdown), Description, Daily Target (text), Start Date (auto today). Submit with animation.
+- **Edit Skill**: Click skill card to open edit modal.
+- **Delete Skill**: Confirm dialog before deleting.
+- **Log Practice Modal**: When "Log Practice" is clicked, show a modal to enter: Date (default
+  today), Duration (minutes), Notes (optional), Progress update (slider 0–100%). This logs a
+  practice session and updates streak + charts.
+
+---
+
+## Data Persistence
+
+- Store all data in **localStorage** under a structured JSON format:
+  - `pst_user` — user profile (name, avatar, reminder time)
+  - `pst_skills` — array of skill objects
+  - `pst_sessions` — array of practice session logs
+  - `pst_badges` — array of unlocked badge IDs with dates
+  - `pst_targets` — today's target completion state
+  - `pst_last_quote` — last shown quote index
+
+---
+
+## Onboarding Flow
+
+On first launch (no user data), show a **3-step onboarding screen**:
+1. Welcome screen with app logo and tagline: *"Track. Grow. Achieve."*
+2. Enter your name and pick an avatar emoji.
+3. Set your first reminder time and allow notifications.
+
+After completing onboarding, animate into the dashboard with a confetti welcome.
+
+---
+
+## Performance & Polish Requirements
+
+- Fully **responsive** — works on mobile, tablet, desktop.
+- All buttons and interactions have **hover + active states** with smooth transitions.
+- Use **loading skeletons** while data initializes.
+- Empty states (no skills added yet) should show a friendly illustration and a CTA button.
+- Smooth **page transition animations** between routes (Framer Motion `AnimatePresence`).
+- All modals have **backdrop blur** and slide-in animations.
+- Color-coded skill categories (each category has a unique accent color).
+
+---
+
+## Summary
+
+Build this as a polished, production-quality React SPA. Prioritize visual quality,
+smooth animations, and a delightful user experience. Every interaction should feel intentional
+and satisfying. The app should feel like a premium self-improvement tool — not a generic CRUD app.
