@@ -1,0 +1,517 @@
+# 🔧 Replit Fix Prompt — Tutorial Bug Fix & Progress Tab Simplification
+
+Fix these 2 specific issues. Do not change anything else in the app.
+
+---
+
+## 🐛 BUG FIX 1 — Tutorial Showing Blank on Step 3+
+
+### The Problem
+Tutorial works for steps 1 and 2 but shows a blank/empty screen from step 3 onwards
+when the user clicks "Next →".
+
+### Root Causes to Check and Fix
+
+**Cause 1 — Target element not found in DOM**
+Steps 3–7 try to spotlight a specific DOM element using `getElementById` or
+`querySelector`. If the element doesn't exist yet (wrong ID, not rendered, inside
+a different route), the spotlight has nothing to point to and renders blank.
+
+Fix: Add a safety check before every step renders:
+```javascript
+function getStepTarget(selector) {
+  const el = document.querySelector(selector);
+  if (!el) {
+    console.warn(`Tutorial target not found: ${selector}`);
+    return null;
+  }
+  return el;
+}
+
+// In the step renderer:
+const target = getStepTarget(step.selector);
+if (!target) {
+  // Skip to next step or show tooltip centered on screen as fallback
+  showStepCentered(step); // fallback: show tooltip in center with no spotlight
+  return;
+}
+```
+
+**Cause 2 — Steps array index off by one**
+The steps array might have undefined entries at index 2+. Check the steps array:
+```javascript
+// Wrong — gap at index 2 causes blank:
+const steps = [
+  { id: 1, ... },
+  { id: 2, ... },
+  undefined,        // ← gap causes blank screen
+  { id: 4, ... },
+];
+
+// Correct — continuous array, no gaps:
+const steps = [
+  { id: 1, ... },
+  { id: 2, ... },
+  { id: 3, ... },   // ← must exist
+  { id: 4, ... },
+  { id: 5, ... },
+  { id: 6, ... },
+  { id: 7, ... },
+];
+```
+
+**Cause 3 — currentStep state not updating correctly**
+If `setCurrentStep` is called but the component doesn't re-render with new step data:
+```javascript
+// Wrong:
+function nextStep() {
+  currentStep++; // mutating directly — React won't re-render
+}
+
+// Correct:
+function nextStep() {
+  setCurrentStep(prev => prev + 1); // functional update — always correct
+}
+```
+
+**Cause 4 — Steps 3–7 targeting elements on different pages/routes**
+If the tutorial runs on the dashboard but step 3 targets the "Add Skill" button
+which only exists on a different page — the element won't be found.
+
+Fix: For steps that target elements not currently visible, either:
+- Navigate to that page before showing the step, OR
+- Use a **centered fallback tooltip** (no spotlight, just the tooltip card in center screen)
+
+```javascript
+// Centered fallback for steps where target is not on current page:
+const CENTERED_STEPS = [1, 7]; // steps that are always centered
+const isCentered = CENTERED_STEPS.includes(currentStep) || !targetElement;
+
+if (isCentered) {
+  // Render overlay + centered tooltip card, no spotlight hole
+} else {
+  // Render spotlight around targetElement
+}
+```
+
+### Complete Fixed Tutorial Implementation
+
+Replace the entire tutorial system with this robust version:
+
+```javascript
+const TUTORIAL_STEPS = [
+  {
+    id: 1,
+    centered: true,
+    emoji: "🌟",
+    title: "Welcome to your Skill Tracker!",
+    message: "Let's take a quick 60-second tour so you know exactly where everything is. You can skip anytime.",
+    selector: null,
+  },
+  {
+    id: 2,
+    centered: false,
+    title: "🏠 Your Dashboard",
+    message: "This is your home base. See your streak, today's targets, and all your skills at a glance every time you open the app.",
+    selector: '[data-tutorial="dashboard-nav"]', // add this data attribute to dashboard nav item
+  },
+  {
+    id: 3,
+    centered: false,
+    title: "➕ Add Your Skills",
+    message: "Tap this to add any skill you want to track — Guitar, Python, Running, anything. You can add as many as you want.",
+    selector: '[data-tutorial="add-skill-btn"]', // add this data attribute to add skill button
+  },
+  {
+    id: 4,
+    centered: false,
+    title: "✅ Today's Targets",
+    message: "Every day, your scheduled skills show up here as a checklist. Check them off as you practice. Complete all of them to earn a streak! 🔥",
+    selector: '[data-tutorial="todays-checklist"]', // add to checklist section
+  },
+  {
+    id: 5,
+    centered: false,
+    title: "🌱 Your Skill Garden",
+    message: "Each skill grows as a plant here. Practice regularly and it blossoms into a tree. Neglect it and it wilts. Keep your garden alive!",
+    selector: '[data-tutorial="garden-nav"]', // add to garden nav item
+  },
+  {
+    id: 6,
+    centered: false,
+    title: "⏱️ Focus Tools",
+    message: "Use the Focus Timer for Pomodoro sessions, or enter Study Waves for a fully immersive practice environment with ambient sounds.",
+    selector: '[data-tutorial="timer-nav"]', // add to timer nav item
+  },
+  {
+    id: 7,
+    centered: true,
+    emoji: "🎉",
+    title: "You're ready to grow!",
+    message: "That's everything you need to know. Start by adding your first skill or checking today's targets. Your journey begins now.",
+    selector: null,
+  },
+];
+```
+
+**Add `data-tutorial` attributes to the actual UI elements:**
+```jsx
+// Dashboard nav item:
+<button data-tutorial="dashboard-nav" ...>🏠 Dashboard</button>
+
+// Add skill button:
+<button data-tutorial="add-skill-btn" ...>+ Add Skill</button>
+
+// Today's checklist section wrapper:
+<div data-tutorial="todays-checklist" ...>
+
+// Garden nav item:
+<button data-tutorial="garden-nav" ...>🌱 Skill Garden</button>
+
+// Timer nav item:
+<button data-tutorial="timer-nav" ...>⏱️ Focus Timer</button>
+```
+
+**Robust step renderer:**
+```javascript
+function TutorialOverlay({ onComplete, onSkip }) {
+  const [currentStep, setCurrentStep] = useState(0);
+  const [targetRect, setTargetRect] = useState(null);
+
+  const step = TUTORIAL_STEPS[currentStep];
+
+  useEffect(() => {
+    if (!step) return;
+    if (step.centered || !step.selector) {
+      setTargetRect(null);
+      return;
+    }
+    // Small delay to ensure DOM is ready
+    const timer = setTimeout(() => {
+      const el = document.querySelector(step.selector);
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        setTargetRect(rect);
+        el.style.position = "relative";
+        el.style.zIndex = "10001";
+      } else {
+        // Element not found — show centered fallback
+        setTargetRect(null);
+      }
+    }, 100);
+    return () => {
+      clearTimeout(timer);
+      // Clean up z-index on previous element
+      if (step.selector) {
+        const el = document.querySelector(step.selector);
+        if (el) { el.style.zIndex = ""; el.style.position = ""; }
+      }
+    };
+  }, [currentStep]);
+
+  function handleNext() {
+    if (currentStep >= TUTORIAL_STEPS.length - 1) {
+      onComplete();
+    } else {
+      setCurrentStep(prev => prev + 1);
+    }
+  }
+
+  function handleBack() {
+    if (currentStep > 0) setCurrentStep(prev => prev - 1);
+  }
+
+  if (!step) return null; // safety check — never render blank
+
+  const isCentered = step.centered || !targetRect;
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 10000,
+      background: isCentered ? "rgba(0,0,0,0.8)" : "transparent",
+    }}>
+      {/* Spotlight overlay for non-centered steps */}
+      {!isCentered && targetRect && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 10000,
+          background: "rgba(0,0,0,0.75)",
+          // Cut out hole using clip-path or box-shadow
+          boxShadow: `0 0 0 9999px rgba(0,0,0,0.75)`,
+          top: targetRect.top - 8,
+          left: targetRect.left - 8,
+          width: targetRect.width + 16,
+          height: targetRect.height + 16,
+          borderRadius: 12,
+          background: "transparent",
+          outline: "9999px solid rgba(0,0,0,0.75)",
+          boxShadow: "0 0 0 4px #00d4ff, 0 0 30px rgba(0,212,255,0.4)",
+          animation: "tutorialPulse 2s ease-in-out infinite",
+          pointerEvents: "none",
+        }} />
+      )}
+
+      {/* Tooltip card */}
+      <div style={{
+        position: "fixed",
+        zIndex: 10001,
+        ...(isCentered ? {
+          top: "50%", left: "50%",
+          transform: "translate(-50%, -50%)",
+        } : targetRect ? {
+          // Position below target, or above if near bottom
+          top: targetRect.bottom + 16 > window.innerHeight - 200
+            ? targetRect.top - 180
+            : targetRect.bottom + 16,
+          left: Math.min(
+            Math.max(targetRect.left, 16),
+            window.innerWidth - 316
+          ),
+        } : {
+          top: "50%", left: "50%",
+          transform: "translate(-50%, -50%)",
+        }),
+        width: 300,
+        background: "rgba(10,15,30,0.97)",
+        border: "1px solid rgba(0,212,255,0.4)",
+        borderRadius: 16,
+        padding: 24,
+        boxShadow: "0 0 40px rgba(0,212,255,0.15)",
+        animation: "fadeIn 0.3s ease",
+      }}>
+        {/* Step counter */}
+        <div style={{ fontSize: 11, color: "#00d4ff", marginBottom: 12, letterSpacing: 1 }}>
+          STEP {currentStep + 1} OF {TUTORIAL_STEPS.length}
+        </div>
+
+        {/* Progress dots */}
+        <div style={{ display: "flex", gap: 4, marginBottom: 16 }}>
+          {TUTORIAL_STEPS.map((_, i) => (
+            <div key={i} style={{
+              width: i === currentStep ? 20 : 6,
+              height: 6, borderRadius: 3,
+              background: i === currentStep ? "#00d4ff"
+                : i < currentStep ? "rgba(0,212,255,0.4)"
+                : "rgba(255,255,255,0.1)",
+              transition: "all 0.3s ease",
+            }} />
+          ))}
+        </div>
+
+        {step.emoji && (
+          <div style={{ fontSize: 40, marginBottom: 12, textAlign: "center" }}>{step.emoji}</div>
+        )}
+        <div style={{ fontWeight: 700, fontSize: 15, color: "#e2e8f0", marginBottom: 8 }}>
+          {step.title}
+        </div>
+        <div style={{ fontSize: 13, color: "#94a3b8", lineHeight: 1.7, marginBottom: 20 }}>
+          {step.message}
+        </div>
+
+        {/* Buttons */}
+        <div style={{ display: "flex", gap: 8, justifyContent: "space-between", alignItems: "center" }}>
+          <button onClick={onSkip}
+            style={{ background: "none", border: "none", color: "#475569", fontSize: 12, cursor: "pointer", fontFamily: "Sora, sans-serif" }}>
+            Skip tutorial
+          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            {currentStep > 0 && (
+              <button onClick={handleBack}
+                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8", padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: "Sora, sans-serif" }}>
+                ← Back
+              </button>
+            )}
+            <button onClick={handleNext}
+              style={{ background: "linear-gradient(135deg, #00d4ff, #0090d0)", border: "none", color: "#0a0f1e", padding: "8px 20px", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "Sora, sans-serif" }}>
+              {currentStep === TUTORIAL_STEPS.length - 1 ? "Start Tracking! 🚀" : "Next →"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+---
+
+## 🎨 FIX 2 — Simplify the Progress Tab
+
+### The Problem
+The Progress tab has too many charts and tables stacked together making it feel
+overwhelming, cluttered, and hard to read.
+
+### Solution — Tabbed Layout Inside Progress Page
+
+Replace the stacked layout with a clean **tabbed card system** inside the Progress page.
+One focused view at a time. Simple navigation between sections.
+
+**New Progress Page Layout:**
+
+```
+┌─────────────────────────────────────────┐
+│  📈 Progress                             │
+│  "Your growth at a glance"              │
+│                                         │
+│  [Overview] [Charts] [Calendar]         │  ← 3 simple tabs
+│                                         │
+│  (content of selected tab here)         │
+└─────────────────────────────────────────┘
+```
+
+### Tab 1 — Overview (Default tab)
+
+Show only the MOST important info — 4 clean stat cards + 1 simple chart:
+
+**4 stat cards in a 2x2 grid:**
+- 🔥 Current Streak — X days
+- ⏰ Total Hours — X hrs
+- ✅ Sessions This Week — X
+- 📊 Average Progress — X%
+
+**1 chart only — Skill Progress Bars:**
+Simple horizontal progress bars for each skill — no recharts needed, pure CSS:
+```
+Guitar     ████████████░░░░  72%
+Python     ██████░░░░░░░░░░  42%
+Spanish    ████░░░░░░░░░░░░  28%
+Drawing    ███████████████░  92%
+```
+
+Each bar shows: skill icon + name on left, percentage on right, colored bar in middle.
+Clean, scannable, instantly understandable.
+
+**No other content on this tab.**
+
+---
+
+### Tab 2 — Charts
+
+Show only 2 charts (not 5):
+
+**Chart 1 — Weekly Sessions (Line Chart)**
+- Last 7 days on X-axis
+- Number of sessions per day on Y-axis
+- One simple line, no multiple lines
+- Recharts LineChart, minimal styling
+
+**Chart 2 — Category Breakdown (Donut Chart)**
+- Simple donut showing % of time per category
+- Legend below with category names and percentages
+- Recharts PieChart
+
+That's it. No bar charts, no heatmaps, no dual-axis charts on this tab.
+
+---
+
+### Tab 3 — Calendar
+
+**One thing only — Monthly Calendar:**
+- Grid of current month (7 columns Mon–Sun)
+- Each day is a small square:
+  - Green = practiced that day
+  - Grey = no practice
+  - Today = cyan border glow
+- Month navigation: ← Previous / Next →
+- Below calendar: simple count *"You practiced on 14 days this month"*
+
+No other content on this tab.
+
+---
+
+### Tab Component Implementation
+
+```javascript
+function ProgressPage({ skills, sessions }) {
+  const [activeTab, setActiveTab] = useState("overview");
+
+  const tabs = [
+    { id: "overview", label: "Overview", icon: "📊" },
+    { id: "charts", label: "Charts", icon: "📈" },
+    { id: "calendar", label: "Calendar", icon: "📅" },
+  ];
+
+  return (
+    <div>
+      <h2 style={{ fontSize: 26, fontWeight: 700, color: "#00d4ff", marginBottom: 4 }}>
+        📈 Progress
+      </h2>
+      <p style={{ color: "#64748b", fontSize: 14, marginBottom: 24 }}>
+        Your growth at a glance
+      </p>
+
+      {/* Tab buttons */}
+      <div style={{
+        display: "flex", gap: 4, marginBottom: 24,
+        background: "rgba(255,255,255,0.03)",
+        border: "1px solid rgba(255,255,255,0.08)",
+        borderRadius: 12, padding: 4,
+        width: "fit-content",
+      }}>
+        {tabs.map(tab => (
+          <button key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            style={{
+              padding: "8px 20px", borderRadius: 8, border: "none", cursor: "pointer",
+              fontFamily: "Sora, sans-serif", fontSize: 13, fontWeight: 500,
+              background: activeTab === tab.id
+                ? "rgba(0,212,255,0.15)"
+                : "transparent",
+              color: activeTab === tab.id ? "#00d4ff" : "#64748b",
+              borderBottom: activeTab === tab.id
+                ? "2px solid #00d4ff"
+                : "2px solid transparent",
+              transition: "all 0.2s ease",
+            }}>
+            {tab.icon} {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab content — fade in on switch */}
+      <div style={{ animation: "fadeIn 0.3s ease" }}>
+        {activeTab === "overview" && <ProgressOverview skills={skills} sessions={sessions} />}
+        {activeTab === "charts" && <ProgressCharts skills={skills} sessions={sessions} />}
+        {activeTab === "calendar" && <ProgressCalendar sessions={sessions} />}
+      </div>
+    </div>
+  );
+}
+```
+
+### Remove from Progress page completely:
+- ❌ Weekly activity heatmap (move concept to Calendar tab only)
+- ❌ Mood vs Performance dual-axis chart (too complex, remove)
+- ❌ Best Time of Day heatmap bar (move to a future Analytics page)
+- ❌ Skill Health color-coded table (replace with simple progress bars in Overview)
+- ❌ Any table with more than 3 columns
+- ❌ Multiple stacked recharts one after another
+
+### Keep only:
+- ✅ 4 stat cards (Overview tab)
+- ✅ CSS progress bars per skill (Overview tab)
+- ✅ Weekly sessions line chart (Charts tab)
+- ✅ Category donut chart (Charts tab)
+- ✅ Monthly calendar (Calendar tab)
+
+---
+
+## ✅ TESTING CHECKLIST
+
+**Tutorial fix:**
+- [ ] All 7 steps show content — no blank screens
+- [ ] Steps 1 and 7 are centered (no spotlight)
+- [ ] Steps 2–6 spotlight the correct element
+- [ ] If an element is not found, step shows centered as fallback (never blank)
+- [ ] Back button works on all steps
+- [ ] Skip button dismisses tutorial immediately
+- [ ] Final step shows confetti and "Start Tracking!" button
+- [ ] Tutorial never shows again after completion
+
+**Progress tab:**
+- [ ] Progress page has 3 tabs: Overview, Charts, Calendar
+- [ ] Overview tab shows 4 stat cards + skill progress bars only
+- [ ] Charts tab shows exactly 2 charts only
+- [ ] Calendar tab shows monthly calendar only
+- [ ] Switching tabs has smooth fade animation
+- [ ] Page no longer feels overwhelming or cluttered
+- [ ] Works correctly on mobile screen sizes
