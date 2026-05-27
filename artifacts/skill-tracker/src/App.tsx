@@ -6,8 +6,10 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { TimerProvider } from "@/contexts/TimerContext";
 import { useState, useEffect } from "react";
 import { storage } from "@/lib/storage";
+import { supabase } from "@/lib/supabase";
 import Layout from "@/components/Layout";
 import JournalDrawer from "@/components/JournalDrawer";
+import AuthPage from "@/pages/AuthPage";
 import Onboarding from "@/pages/Onboarding";
 import Dashboard from "@/pages/Dashboard";
 import Skills from "@/pages/Skills";
@@ -20,24 +22,61 @@ import Achievements from "@/pages/Achievements";
 import Duels from "@/pages/Duels";
 import Partner from "@/pages/Partner";
 import Settings from "@/pages/Settings";
+import StudyWaves from "@/pages/StudyWaves";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
 
+type AppState = "loading" | "auth" | "onboarding" | "app" | "waves";
+
 function AppContent() {
-  const [hasUser, setHasUser] = useState<boolean | null>(null);
+  const [appState, setAppState] = useState<AppState>("loading");
   const [journalOpen, setJournalOpen] = useState(false);
   const [journalSkillId, setJournalSkillId] = useState("");
   const [journalSkillName, setJournalSkillName] = useState("");
 
   useEffect(() => {
-    setHasUser(!!storage.getUser());
-    const handler = () => setHasUser(!!storage.getUser());
-    window.addEventListener("storage-update", handler);
-    return () => window.removeEventListener("storage-update", handler);
+    async function init() {
+      // Check if supabase is available
+      if (supabase) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          // Logged in via supabase
+          const user = storage.getUser();
+          if (!user) {
+            const name = session.user.user_metadata?.name || session.user.email?.split("@")[0] || "Learner";
+            storage.setUser({ name, avatar: "🧑‍💻", reminderTime: "08:00", reminderEnabled: false, theme: "dark" });
+          }
+          setAppState("app");
+          return;
+        }
+        // Listen for future auth changes
+        supabase.auth.onAuthStateChange((event, sess) => {
+          if (event === "SIGNED_IN" && sess?.user) {
+            const user = storage.getUser();
+            if (!user) {
+              const name = sess.user.user_metadata?.name || sess.user.email?.split("@")[0] || "Learner";
+              storage.setUser({ name, avatar: "🧑‍💻", reminderTime: "08:00", reminderEnabled: false, theme: "dark" });
+            }
+            setAppState("app");
+          } else if (event === "SIGNED_OUT") {
+            setAppState("auth");
+          }
+        });
+      }
+
+      // Fall back to localStorage-only check
+      const hasUser = !!storage.getUser();
+      if (hasUser) {
+        setAppState("app");
+      } else {
+        // Show auth page if supabase configured, else onboarding
+        setAppState(supabase ? "auth" : "onboarding");
+      }
+    }
+    init();
   }, []);
 
-  // Apply saved theme on startup
   useEffect(() => {
     const savedTheme = storage.getTheme();
     if (savedTheme && savedTheme !== "midnight") {
@@ -56,6 +95,14 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
+    const handler = () => {
+      setAppState("waves");
+    };
+    window.addEventListener("open-study-waves", handler);
+    return () => window.removeEventListener("open-study-waves", handler);
+  }, []);
+
+  useEffect(() => {
     const interval = setInterval(() => {
       const user = storage.getUser();
       if (!user?.reminderEnabled || Notification.permission !== "granted") return;
@@ -70,7 +117,7 @@ function AppContent() {
     return () => clearInterval(interval);
   }, []);
 
-  if (hasUser === null) {
+  if (appState === "loading") {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -78,8 +125,19 @@ function AppContent() {
     );
   }
 
-  if (!hasUser) {
-    return <Onboarding onComplete={() => setHasUser(true)} />;
+  if (appState === "waves") {
+    return <StudyWaves onExit={() => setAppState("app")} />;
+  }
+
+  if (appState === "auth") {
+    return <AuthPage onAuth={() => {
+      const hasUser = !!storage.getUser();
+      setAppState(hasUser ? "app" : "onboarding");
+    }} />;
+  }
+
+  if (appState === "onboarding") {
+    return <Onboarding onComplete={() => setAppState("app")} />;
   }
 
   return (

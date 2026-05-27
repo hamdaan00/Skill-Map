@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Flame, Plus, RefreshCw, Edit2, Trash2, Timer, BookOpen, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
+import { Flame, Plus, RefreshCw, Edit2, Trash2, Timer, BookOpen, AlertTriangle, ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { storage, Skill, Session } from "@/lib/storage";
@@ -13,7 +13,8 @@ import SkillModal from "@/components/SkillModal";
 import LogPracticeModal from "@/components/LogPracticeModal";
 import BadgeUnlockModal from "@/components/BadgeUnlockModal";
 import FocusTimerModal from "@/components/FocusTimerModal";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import ConfirmDialog from "@/components/ConfirmDialog";
+import { useToast } from "@/hooks/use-toast";
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -76,11 +77,12 @@ function ConsistencyGauge({ score }: { score: number }) {
 }
 
 export default function Dashboard() {
-  const [skills, setSkills] = useState<Skill[]>([]);
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [user, setUser] = useState(storage.getUser());
-  const [unlockedBadges, setUnlockedBadges] = useState(storage.getBadges());
-  const [targets, setTargets] = useState(storage.getTargets());
+  const [skills, setSkills] = useState<Skill[]>(() => storage.getSkills());
+  const [sessions, setSessions] = useState<Session[]>(() => storage.getSessions());
+  const [user, setUser] = useState(() => storage.getUser());
+  const [unlockedBadges, setUnlockedBadges] = useState(() => storage.getBadges());
+  const [targets, setTargets] = useState(() => storage.getTargets());
+  const { toast } = useToast();
 
   const [quoteIdx, setQuoteIdx] = useState(storage.getLastQuote());
   const [currentQuote, setCurrentQuote] = useState(() => {
@@ -96,6 +98,7 @@ export default function Dashboard() {
   const [timerSkill, setTimerSkill] = useState<Skill | null>(null);
   const [newBadges, setNewBadges] = useState<string[]>([]);
   const [showSchedule, setShowSchedule] = useState(false);
+  const [allTargetsDone, setAllTargetsDone] = useState(false);
 
   const today = new Date().toISOString().split("T")[0];
   const todayDow = getDayOfWeek();
@@ -113,7 +116,12 @@ export default function Dashboard() {
     reload();
     const handler = () => reload();
     window.addEventListener("storage-update", handler);
-    return () => window.removeEventListener("storage-update", handler);
+    // Also sync across tabs
+    window.addEventListener("storage", handler);
+    return () => {
+      window.removeEventListener("storage-update", handler);
+      window.removeEventListener("storage", handler);
+    };
   }, [reload]);
 
   useEffect(() => {
@@ -196,6 +204,7 @@ export default function Dashboard() {
       updated = [...allSkills, newSkill];
     }
     storage.setSkills(updated);
+    setSkills([...updated]); // BUG FIX: force immediate re-render
     checkAndUnlockBadges(updated, sessions);
     setShowSkillModal(false);
     setEditSkill(null);
@@ -205,6 +214,7 @@ export default function Dashboard() {
     if (!deleteSkillId) return;
     const updated = storage.getSkills().filter((s) => s.id !== deleteSkillId);
     storage.setSkills(updated);
+    setSkills([...updated]); // BUG FIX: force immediate re-render
     setDeleteSkillId(null);
   };
 
@@ -442,34 +452,119 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Today's Targets */}
-      {todayTargets.length > 0 && (
-        <div className="bg-card border border-border rounded-2xl p-5">
-          <div className="flex items-center justify-between mb-4">
+      {/* Today's Checklist */}
+      <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
             <h3 className="text-sm font-semibold text-foreground">Today's Targets</h3>
-            <span className="text-xs text-muted-foreground">{todayDone.length}/{todayTargets.length} done</span>
+            <span className="text-xs text-muted-foreground">
+              {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
+            </span>
           </div>
-          <div className="space-y-3">
-            {todayTargets.map((skill) => {
+          <span
+            className="text-xs font-semibold px-2.5 py-1 rounded-full"
+            style={{ background: "rgba(0,212,255,0.1)", color: "#00d4ff", border: "1px solid rgba(0,212,255,0.2)" }}
+          >
+            {todayDone.length} / {todayTargets.length} done
+          </span>
+        </div>
+
+        {/* Progress bar */}
+        {todayTargets.length > 0 && (
+          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+            <motion.div
+              className="h-full rounded-full"
+              style={{ background: "linear-gradient(90deg,#00d4ff,#0094b3)" }}
+              animate={{ width: `${todayTargets.length > 0 ? (todayDone.length / todayTargets.length) * 100 : 0}%` }}
+              transition={{ duration: 0.5 }}
+            />
+          </div>
+        )}
+
+        {/* All done celebration */}
+        <AnimatePresence>
+          {todayTargets.length > 0 && todayDone.length >= todayTargets.length && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              className="rounded-xl p-4 text-center"
+              style={{ background: "linear-gradient(135deg,rgba(0,212,255,0.15),rgba(0,148,179,0.1))", border: "1px solid rgba(0,212,255,0.3)" }}
+            >
+              <p className="text-sm font-bold" style={{ color: "#00d4ff" }}>
+                🎉 All targets complete! Incredible work, {user?.name || "Learner"}!
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {todayTargets.length === 0 ? (
+          <div className="text-center py-4">
+            <p className="text-sm text-muted-foreground">🌿 No targets for today — a rest day is part of growth.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {[...todayTargets]
+              .sort((a, b) => {
+                const aDone = todayDone.includes(a.id) ? 1 : 0;
+                const bDone = todayDone.includes(b.id) ? 1 : 0;
+                return aDone - bDone;
+              })
+              .map((skill) => {
               const done = todayDone.includes(skill.id);
+              const catColor = CATEGORY_COLORS[skill.category] || "#00d4ff";
               return (
-                <div key={skill.id} className="flex items-center gap-3">
-                  <div
-                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${done ? "border-primary bg-primary" : "border-border"}`}
-                    style={done ? {} : { borderColor: CATEGORY_COLORS[skill.category] }}
+                <motion.div
+                  key={skill.id}
+                  layout
+                  className="flex items-center gap-3 p-3 rounded-xl transition-all"
+                  style={{
+                    background: done ? "rgba(0,212,255,0.05)" : "rgba(255,255,255,0.03)",
+                    border: `1px solid ${done ? "rgba(0,212,255,0.2)" : "rgba(255,255,255,0.06)"}`,
+                    opacity: done ? 0.6 : 1,
+                  }}
+                >
+                  <button
+                    onClick={() => {
+                      const currentDone = targets?.date === today ? targets.completedSkillIds : [];
+                      let newDone: string[];
+                      if (currentDone.includes(skill.id)) {
+                        newDone = currentDone.filter(id => id !== skill.id);
+                      } else {
+                        newDone = [...currentDone, skill.id];
+                        sound.logSession();
+                      }
+                      storage.setTargets({ date: today, completedSkillIds: newDone });
+                    }}
+                    className="shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all"
+                    style={{
+                      borderColor: done ? "#00d4ff" : catColor,
+                      background: done ? "#00d4ff" : "transparent",
+                    }}
                   >
-                    {done && <div className="w-2 h-2 rounded-full bg-primary-foreground" />}
-                  </div>
+                    {done && <span className="text-[10px] font-bold text-[#0a0f1e]">✓</span>}
+                  </button>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-foreground truncate">{skill.name}</div>
-                    <div className="text-xs text-muted-foreground truncate">{skill.dailyTarget}</div>
+                    <div className={`text-sm font-medium text-foreground truncate ${done ? "line-through opacity-60" : ""}`}>
+                      {skill.name}
+                    </div>
+                    {skill.dailyTarget && (
+                      <div className="text-xs text-muted-foreground truncate">{skill.dailyTarget}</div>
+                    )}
                   </div>
-                </div>
+                  <button
+                    onClick={() => setTimerSkill(skill)}
+                    className="shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all hover:scale-105"
+                    style={{ background: `${catColor}15`, color: catColor, border: `1px solid ${catColor}30` }}
+                  >
+                    <Timer className="w-3 h-3" /> Start
+                  </button>
+                </motion.div>
               );
             })}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Skills Grid */}
       <div>
@@ -672,18 +767,15 @@ export default function Dashboard() {
           skillName={timerSkill.name}
         />
       )}
-      <AlertDialog open={!!deleteSkillId} onOpenChange={() => setDeleteSkillId(null)}>
-        <AlertDialogContent className="rounded-2xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Skill?</AlertDialogTitle>
-            <AlertDialogDescription>This will permanently delete this skill and all its sessions.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-xl" data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
-            <AlertDialogAction className="rounded-xl bg-destructive hover:bg-destructive/90" onClick={handleDeleteSkill} data-testid="button-confirm-delete">Delete</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={!!deleteSkillId}
+        title="Delete Skill?"
+        message={`This will permanently delete ${skills.find(s => s.id === deleteSkillId)?.name || "this skill"} and all its sessions and progress. This cannot be undone.`}
+        confirmLabel="🗑️ Delete Forever"
+        onConfirm={() => { handleDeleteSkill(); toast({ description: "✓ Skill deleted" }); }}
+        onCancel={() => setDeleteSkillId(null)}
+        danger
+      />
       {newBadges.length > 0 && (
         <BadgeUnlockModal badgeIds={newBadges} onDismiss={() => setNewBadges([])} />
       )}

@@ -9,11 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useTheme } from "@/components/theme-provider";
 import { storage } from "@/lib/storage";
+import { supabase } from "@/lib/supabase";
 import { sound } from "@/lib/sound";
 import { useToast } from "@/hooks/use-toast";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 const AVATARS = ["🧑","👩","🧔","👨‍💻","👩‍🎨","🧑‍🚀","🦸","🧙","🐉","⚡","🔥","🌊","🌟","🎯","💎"];
 
@@ -289,6 +290,26 @@ export default function Settings() {
         )}
       </motion.div>
 
+      {/* Sign Out */}
+      {supabase && (
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="bg-card border border-border rounded-2xl p-6 space-y-4">
+          <div className="flex items-center gap-3">
+            <span className="text-lg">🚪</span>
+            <h2 className="font-semibold text-foreground" style={{ fontFamily: "'Sora', sans-serif" }}>Account</h2>
+          </div>
+          <Button
+            variant="outline"
+            className="rounded-xl gap-2"
+            onClick={async () => {
+              await supabase.auth.signOut();
+              window.location.reload();
+            }}
+          >
+            Sign Out
+          </Button>
+        </motion.div>
+      )}
+
       {/* Danger Zone */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="bg-card border border-destructive/30 rounded-2xl p-6 space-y-4">
         <div className="flex items-center gap-3">
@@ -301,18 +322,15 @@ export default function Settings() {
         </Button>
       </motion.div>
 
-      <AlertDialog open={showReset} onOpenChange={setShowReset}>
-        <AlertDialogContent className="rounded-2xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Reset All Data?</AlertDialogTitle>
-            <AlertDialogDescription>This will permanently delete everything. There is no way to undo this.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-reset" className="rounded-xl">Cancel</AlertDialogCancel>
-            <AlertDialogAction data-testid="button-confirm-reset" onClick={handleReset} className="rounded-xl bg-destructive hover:bg-destructive/90">Reset Everything</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={showReset}
+        title="Reset Everything?"
+        message="This will permanently delete ALL your skills, sessions, badges, journal entries, and progress. This is irreversible."
+        confirmLabel="⚠️ Yes, Delete Everything"
+        onConfirm={handleReset}
+        onCancel={() => setShowReset(false)}
+        danger
+      />
     </div>
   );
 }

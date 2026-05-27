@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import { useState } from "react";
 import {
   LayoutDashboard, TrendingUp, Target, Trophy, Settings,
-  Menu, X, Zap, Flag, Swords, BookOpen, Timer, Layers, Users
+  Menu, X, Zap, Flag, Swords, BookOpen, Timer, Layers, Users, Waves
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -30,6 +30,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const handleNavClick = () => {
     sound.navClick();
     setMobileOpen(false);
+  };
+
+  const handleWaves = () => {
+    sound.navClick();
+    setMobileOpen(false);
+    window.dispatchEvent(new Event("open-study-waves"));
   };
 
   const isActive = (href: string) =>
@@ -70,6 +76,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </div>
             </Link>
           ))}
+
+          {/* Study Waves button */}
+          <button
+            onClick={handleWaves}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            style={{ color: "#00d4ff" }}
+          >
+            <Waves className="w-4 h-4 shrink-0" style={{ color: "#00d4ff" }} />
+            Study Waves
+          </button>
         </nav>
       </aside>
 
@@ -138,6 +154,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     </div>
                   </Link>
                 ))}
+                <button
+                  onClick={handleWaves}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer"
+                  style={{ color: "#00d4ff" }}
+                >
+                  <Waves className="w-4 h-4 shrink-0" style={{ color: "#00d4ff" }} />
+                  Study Waves
+                </button>
               </nav>
             </motion.div>
           </>

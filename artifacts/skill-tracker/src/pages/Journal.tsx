@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { storage, JournalEntry } from "@/lib/storage";
+import ConfirmDialog from "@/components/ConfirmDialog";
+import { useToast } from "@/hooks/use-toast";
 
 const MOODS = [
   { value: 1, emoji: "😴", label: "Exhausted" },
@@ -29,6 +31,8 @@ export default function Journal() {
   const [formDate, setFormDate] = useState(new Date().toISOString().split("T")[0]);
   const [formMood, setFormMood] = useState(3);
   const [formText, setFormText] = useState("");
+  const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const reload = () => {
     const all = storage.getJournal().sort((a, b) => b.date.localeCompare(a.date));
@@ -58,7 +62,6 @@ export default function Journal() {
     setShowForm(false);
     reload();
 
-    // Badge check: 10 journal entries
     const total = storage.getJournal().length;
     if (total >= 10) {
       const badges = storage.getBadges();
@@ -68,9 +71,12 @@ export default function Journal() {
     }
   };
 
-  const handleDelete = (id: string) => {
-    storage.setJournal(storage.getJournal().filter(e => e.id !== id));
+  const handleConfirmDelete = () => {
+    if (!deleteEntryId) return;
+    storage.setJournal(storage.getJournal().filter(e => e.id !== deleteEntryId));
+    setDeleteEntryId(null);
     reload();
+    toast({ description: "✓ Entry deleted" });
   };
 
   const skillName = (id: string) => skills.find(s => s.id === id)?.name || "Unknown Skill";
@@ -83,7 +89,6 @@ export default function Journal() {
 
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: "'Sora', sans-serif" }}>
@@ -103,7 +108,6 @@ export default function Journal() {
         </Button>
       </div>
 
-      {/* New Entry Form */}
       <AnimatePresence>
         {showForm && (
           <motion.div
@@ -178,7 +182,6 @@ export default function Journal() {
         )}
       </AnimatePresence>
 
-      {/* Filters */}
       <div className="flex gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -200,7 +203,6 @@ export default function Journal() {
         </Select>
       </div>
 
-      {/* Entries */}
       {filtered.length === 0 ? (
         <div className="text-center py-20 bg-card border border-dashed border-border rounded-2xl">
           <BookOpen className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
@@ -240,7 +242,7 @@ export default function Journal() {
                   </div>
                 </div>
                 <button
-                  onClick={() => handleDelete(entry.id)}
+                  onClick={() => setDeleteEntryId(entry.id)}
                   className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -251,6 +253,16 @@ export default function Journal() {
           ))}
         </motion.div>
       )}
+
+      <ConfirmDialog
+        open={!!deleteEntryId}
+        title="Delete Entry?"
+        message="This journal reflection will be permanently removed."
+        confirmLabel="Delete Entry"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteEntryId(null)}
+        danger
+      />
     </div>
   );
 }
