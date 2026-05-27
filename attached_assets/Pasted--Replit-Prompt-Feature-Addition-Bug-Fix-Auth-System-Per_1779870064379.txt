@@ -1,0 +1,547 @@
+# 🔧 Replit Prompt — Feature Addition, Bug Fix & Auth System
+# Personal Skill Tracker — Sprint Update
+
+This prompt adds new features, fixes a critical bug, and adds authentication + cloud sync
+to the existing Personal Skill Tracker app. Preserve ALL existing features and design language.
+Only add, fix, or improve — never remove what already works.
+
+---
+
+## 🚨 CRITICAL BUG FIX — Fix This First
+
+### Skills Not Showing on Dashboard
+
+**Problem:** The "My Skills" section on the dashboard is empty even after skills are added.
+
+**Root Cause:** Skills are being saved to localStorage under `pst_skills` but the dashboard
+component is not reading from localStorage on mount — it's using stale initial state or
+not subscribing to storage updates.
+
+**Fix Instructions:**
+- Ensure the dashboard skills list reads directly from `pst_skills` in localStorage on every
+  render, not just on initial mount.
+- Add a `useEffect` that listens to the `storage` event to sync state across tabs:
+  ```javascript
+  useEffect(() => {
+    const sync = () => setSkills(loadData("pst_skills", []));
+    window.addEventListener("storage", sync);
+    return () => window.removeEventListener("storage", sync);
+  }, []);
+  ```
+- Ensure `saveData("pst_skills", skills)` is called immediately after every add/edit/delete
+  operation, not just on component unmount.
+- After adding a skill via the modal, call `setSkills([...updatedSkills])` to force a re-render.
+- Verify the skills state is passed as a prop (or read from context) into the Dashboard
+  component — not re-initialized as an empty array inside the Dashboard.
+- Add a console.log temporarily to verify skills are being read: 
+  `console.log("Skills loaded:", loadData("pst_skills", []))` — remove after fix confirmed.
+- Test: Add a skill → close modal → Dashboard must immediately show the new skill card.
+
+---
+
+## 🔐 FEATURE 1 — Login / Signup System + Cloud Sync (Zero Cost)
+
+Use **Supabase** (free tier — 500MB database, 50MB file storage, built-in auth).
+Supabase free tier is permanent and sufficient for this app.
+
+### Setup Instructions
+
+Install Supabase client:
+```bash
+npm install @supabase/supabase-js
+```
+
+Create a file `src/supabase.js`:
+```javascript
+import { createClient } from "@supabase/supabase-js";
+export const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
+```
+
+Add to `.env`:
+```
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+### Supabase Database Schema
+
+Create these tables in Supabase SQL editor:
+
+```sql
+-- Users table (extends Supabase auth.users)
+create table profiles (
+  id uuid references auth.users primary key,
+  name text,
+  avatar text default '🧑‍💻',
+  created_at timestamptz default now()
+);
+
+-- Skills table
+create table skills (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users not null,
+  name text not null,
+  category text,
+  color text,
+  icon text,
+  xp integer default 0,
+  level integer default 1,
+  progress integer default 0,
+  scheduled_days text[],
+  last_practiced timestamptz,
+  why_started text,
+  daily_target text,
+  archived boolean default false,
+  created_at timestamptz default now()
+);
+
+-- Sessions table
+create table sessions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users not null,
+  skill_id uuid references skills not null,
+  duration integer,
+  mood integer,
+  xp_earned integer default 10,
+  notes text,
+  logged_at timestamptz default now()
+);
+
+-- Enable Row Level Security
+alter table profiles enable row level security;
+alter table skills enable row level security;
+alter table sessions enable row level security;
+
+-- RLS Policies (users only see their own data)
+create policy "Users see own profile" on profiles for all using (auth.uid() = id);
+create policy "Users see own skills" on skills for all using (auth.uid() = user_id);
+create policy "Users see own sessions" on sessions for all using (auth.uid() = user_id);
+```
+
+### Auth Flow
+
+Build an `AuthPage` component shown before the main app if no user session exists.
+
+**Auth Page Design:**
+- Full screen with the app's dark navy background
+- App logo (🌟) and name "SkillTracker" centered at top
+- Tagline: *"Track. Grow. Achieve."* in cyan
+- Two tabs: **Sign Up** and **Log In**
+- Form fields:
+  - Sign Up: Name, Email, Password, Confirm Password
+  - Log In: Email, Password
+- "Continue with Google" button using Supabase OAuth:
+  ```javascript
+  await supabase.auth.signInWithOAuth({ provider: "google" });
+  ```
+- "Forgot Password?" link triggers Supabase password reset email
+- On successful auth, redirect to onboarding (new users) or dashboard (returning users)
+- Show loading spinner during auth operations
+- Show error messages inline below the form (e.g. "Invalid email or password")
+- Style: glassmorphism card centered on screen, same dark navy + cyan design language
+
+**Session Management:**
+```javascript
+// Check auth on app load
+const { data: { session } } = await supabase.auth.getSession();
+
+// Listen for auth changes
+supabase.auth.onAuthStateChange((event, session) => {
+  setUser(session?.user || null);
+});
+
+// Sign out button in Settings
+await supabase.auth.signOut();
+```
+
+### Cloud Sync Strategy
+
+Replace all `localStorage` read/writes with Supabase queries, but keep localStorage
+as a **cache** for offline support:
+
+```javascript
+// Load skills: try Supabase first, fall back to localStorage cache
+async function loadSkills(userId) {
+  try {
+    const { data, error } = await supabase
+      .from("skills")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at");
+    if (data) {
+      saveData("pst_skills", data); // update cache
+      return data;
+    }
+  } catch {
+    return loadData("pst_skills", []); // offline fallback
+  }
+}
+
+// Save skill: save to Supabase and update localStorage cache
+async function saveSkill(skill, userId) {
+  const { data } = await supabase
+    .from("skills")
+    .upsert({ ...skill, user_id: userId })
+    .select()
+    .single();
+  const updated = loadData("pst_skills", []).map(s => s.id === skill.id ? data : s);
+  saveData("pst_skills", updated);
+  return data;
+}
+```
+
+Show a small **sync status indicator** in the top navbar:
+- 🟢 Green dot = synced
+- 🟡 Yellow dot = syncing...
+- 🔴 Red dot = offline (using cached data)
+
+---
+
+## 🎬 FEATURE 2 — Onboarding Flow (New Users Only)
+
+Show this onboarding flow ONLY on first launch (when `pst_onboarded` is not set in
+localStorage, or when Supabase profile has no name set).
+
+### Step 1 — Welcome Screen
+- Full screen animated intro
+- Large emoji: 🌟
+- Headline: **"Welcome to SkillTracker"** (Sora font, 36px, white)
+- Subtext: *"The app that doesn't just track your habits — it witnesses your growth."*
+- Animated entrance: elements fade in with staggered delays (0ms, 200ms, 400ms, 600ms)
+- Button: **"Let's Begin →"**
+- Subtle animated background: slow-moving gradient mesh in dark navy + cyan
+
+### Step 2 — Tell Us About You
+- Headline: *"What should we call you?"*
+- Large emoji avatar picker: grid of 12 emojis (🧑‍💻 👩‍🎨 🧑‍🎸 👨‍🔬 🧑‍🏫 👩‍💼 🧑‍🚀 👩‍🍳 🧑‍🎤 👨‍🎨 🧑‍🏋️ 🧘)
+  - User taps to select their avatar (selected avatar gets a glowing cyan border)
+- Text input: "Your name" (auto-focus)
+- Button: **"Nice to meet you, [name]! →"** (updates dynamically as they type)
+
+### Step 3 — Add Your First Skill
+- Headline: *"What's one skill you want to grow?"*
+- Subtext: *"You can add more later. Start with just one."*
+- Show a **Skill Templates Grid** — 12 popular skills as tappable cards:
+
+  | Skill | Icon | Category | Color |
+  |---|---|---|---|
+  | Guitar | 🎸 | Music | #f59e0b |
+  | Python | 🐍 | Tech | #3b82f6 |
+  | Running | 🏃 | Fitness | #10b981 |
+  | Spanish | 🇪🇸 | Language | #ec4899 |
+  | Drawing | ✏️ | Art | #8b5cf6 |
+  | Piano | 🎹 | Music | #f97316 |
+  | JavaScript | 💻 | Tech | #eab308 |
+  | Yoga | 🧘 | Fitness | #06b6d4 |
+  | French | 🇫🇷 | Language | #6366f1 |
+  | Photography | 📸 | Art | #d946ef |
+  | Chess | ♟️ | Mind | #64748b |
+  | Reading | 📚 | Mind | #84cc16 |
+
+- Or a manual input: "Type your own skill name"
+- Each template card shows icon, name, and category badge
+- Tapping a template pre-fills the skill — user can still customize name
+- Button: **"Add This Skill →"**
+
+### Step 4 — Set a Daily Target
+- Headline: *"How much will you practice daily?"*
+- Subtext: *"Even 10 minutes a day compounds into mastery."*
+- Three quick-select options as large buttons:
+  - **10 minutes** — "Just getting started"
+  - **30 minutes** — "Serious learner"
+  - **1 hour** — "Full commitment"
+- Or custom text input: "e.g. Complete 1 chapter"
+- Button: **"Set My Target →"**
+
+### Step 5 — Set a Reminder
+- Headline: *"When should we remind you to practice?"*
+- Time picker (HTML `<input type="time">`) with default value of 08:00
+- Large display showing the chosen time
+- "Request Notification Permission" button — triggers browser permission prompt
+- If denied: show a friendly note: *"No worries — you can enable this later in Settings."*
+- Button: **"I'm Ready — Let's Go! 🚀"**
+
+### Step 6 — Celebration Screen
+- Full screen confetti animation (CSS keyframe particles — no external library)
+- Large text: *"You're all set, [Name]! 🎉"*
+- Subtext: *"Your first skill has been added. Your journey begins now."*
+- Auto-redirect to dashboard after 2.5 seconds (or button: "Go to Dashboard")
+
+### Onboarding Technical Notes
+- Show a progress indicator at the top (dots or step numbers: 1 / 5)
+- Back button on all steps except step 1
+- All data collected during onboarding saves to Supabase on step 6 completion
+- Store `pst_onboarded: true` in localStorage after completion so it never shows again
+- Smooth slide-in/slide-out transition between steps using CSS transforms
+
+---
+
+## 📋 FEATURE 3 — Today's Checklist
+
+Add a **"Today's Checklist"** section as a prominent widget on the Dashboard.
+
+### Layout
+- Position: directly below the welcome header and stats row, above the skills grid
+- Title: *"Today's Targets"* with today's date and a completion badge (e.g. "2 / 4 done")
+
+### Checklist Item Design
+Each item shows:
+- Circular checkbox (unchecked = grey ring, checked = filled cyan with ✓)
+- Skill icon + name
+- Target description (e.g. "Practice 30 minutes")
+- Time badge showing scheduled time if set
+- A **"Start Timer"** shortcut button that opens the Focus Timer for that skill
+
+### Behavior
+- Only show skills scheduled for today's day of the week
+- If no skills are scheduled for today, show: *"🌿 No targets for today — a rest day is part of growth."*
+- Clicking a checklist item's checkbox marks it as complete
+- Completed items move to the bottom of the list with a strikethrough style and reduced opacity
+- When ALL items are checked, trigger:
+  - Full-width celebration banner: *"🎉 All targets complete! Incredible work, [Name]!"*
+  - Confetti burst (CSS animation)
+  - Play fanfare sound (if sound enabled)
+- Target completion state stores in `pst_targets_[YYYY-MM-DD]` in localStorage
+- State resets automatically the next day (compare stored date with today's date on load)
+- Show completion percentage as a progress bar under the section title
+
+### Missed Targets
+- If yesterday had incomplete targets, show a gentle note at the top:
+  *"Yesterday you missed 2 targets. That's okay — today is a fresh start. 💙"*
+- Never shame the user — always use encouraging language
+
+---
+
+## ⚠️ FEATURE 4 — Confirmation Dialogs ("Are You Sure?")
+
+Add a reusable `ConfirmDialog` component that appears before any destructive action.
+
+### Component Design
+```jsx
+function ConfirmDialog({ title, message, confirmLabel, onConfirm, onCancel, danger }) {
+  // Modal with backdrop blur
+  // Title in white, message in muted grey
+  // Two buttons: Cancel (ghost) and Confirm (red if danger=true, cyan otherwise)
+}
+```
+
+### Trigger this dialog before ALL of these actions:
+
+| Action | Title | Message | Button |
+|---|---|---|---|
+| Delete a skill | "Delete Skill?" | "This will permanently delete [Skill Name] and all its sessions and progress. This cannot be undone." | 🗑️ Delete Forever |
+| Delete a journal entry | "Delete Entry?" | "This journal reflection will be permanently removed." | Delete Entry |
+| Delete a letter | "Delete Letter?" | "This sealed letter will be gone forever — even if it hasn't been opened yet." | Delete Letter |
+| Archive a skill | "Archive Skill?" | "Archived skills are hidden from your dashboard. You can restore them later from Settings." | Archive |
+| Reset all data | "Reset Everything?" | "This will permanently delete ALL your skills, sessions, badges, journal entries, and progress. This is irreversible." | ⚠️ Yes, Delete Everything |
+| Sign out | "Sign Out?" | "You'll need to log in again to access your data." | Sign Out |
+
+### Dialog Behavior
+- Appears with a fade-in + scale-up animation
+- Backdrop is dark with blur (rgba(0,0,0,0.7) + backdrop-filter:blur(8px))
+- Pressing Escape key closes the dialog (same as Cancel)
+- Clicking backdrop closes the dialog
+- Confirm button is RED for destructive actions, CYAN for non-destructive
+- After confirmation, show a toast: *"✓ [Action] complete"*
+- Never perform the destructive action without this dialog
+
+---
+
+## 🌊 FEATURE 5 — Study Waves
+
+Add a **"Study Waves"** ambient visual and audio mode — a full-screen or sidebar
+immersive focus environment designed specifically for deep study sessions.
+
+### What Study Waves Is
+A dedicated focus mode combining:
+- Animated wave visualizer (CSS/SVG)
+- Ambient sound (Web Audio API)
+- Session timer
+- Minimal distraction-free UI
+
+### Study Waves Page
+Add to sidebar navigation: 🌊 Study Waves
+
+**Full-screen layout:**
+- Background: deep dark (no navbar, no sidebar — fully immersive)
+- Large animated wave at the bottom of the screen (3 overlapping SVG sine waves in
+  different opacities and speeds — cyan, blue, purple)
+- Wave animation uses CSS `@keyframes` to shift the wave horizontally:
+  ```css
+  @keyframes wave { 0% { transform: translateX(0) } 100% { transform: translateX(-50%) } }
+  ```
+- Center of screen shows:
+  - Current skill being studied (icon + name, large)
+  - Session timer (large, minimal — just MM:SS)
+  - Mood before starting: quick 5-emoji picker
+  - Current ambient sound name
+
+**Wave Audio Options** (Web Audio API only — no files):
+Generate these programmatically:
+
+| Wave Type | Sound Description | Color Theme |
+|---|---|---|
+| 🌊 Ocean Waves | Low rumble + white noise rhythm | Deep blue + cyan |
+| 🌧️ Rain Storm | Random noise bursts + low frequency | Grey + silver |
+| 🔥 Fire Crackle | Filtered noise with slow modulation | Amber + orange |
+| 🌌 Space Drift | Slow sine tones + subtle reverb | Purple + dark blue |
+| 🎵 Lo-Fi Waves | Simple chord progression loop | Warm gold + brown |
+| 🏔️ Mountain Wind | High-frequency filtered noise | Teal + white |
+
+**Web Audio API implementation for Ocean Waves:**
+```javascript
+function createOceanWaves(ctx) {
+  const bufferSize = ctx.sampleRate * 2;
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  let lastOut = 0;
+  for (let i = 0; i < bufferSize; i++) {
+    const white = Math.random() * 2 - 1;
+    data[i] = (lastOut + (0.02 * white)) / 1.02;
+    lastOut = data[i];
+    data[i] *= 3.5;
+  }
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+  source.loop = true;
+  const gain = ctx.createGain();
+  gain.gain.value = 0.3;
+  const filter = ctx.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.value = 400;
+  source.connect(filter);
+  filter.connect(gain);
+  gain.connect(ctx.destination);
+  source.start();
+  return [source, filter, gain];
+}
+```
+
+**Study Waves Controls:**
+- Wave type selector: horizontal scrollable list of wave cards at the bottom
+- Volume slider (0–100%)
+- Timer with Start/Pause/Stop
+- Skill selector dropdown (compact)
+- **"Exit Waves"** button (top-left, subtle) — returns to dashboard and auto-logs the session
+- Keyboard shortcut: **Space** = pause/resume timer, **Esc** = exit
+
+**Wave Visualizer:**
+Three animated sine waves rendered as SVG paths, using JavaScript to update the path `d`
+attribute every 50ms based on a sine function:
+```javascript
+function generateWavePath(width, height, amplitude, frequency, phase) {
+  let d = `M 0 ${height}`;
+  for (let x = 0; x <= width; x += 5) {
+    const y = height / 2 + amplitude * Math.sin((x / width) * frequency * Math.PI * 2 + phase);
+    d += ` L ${x} ${y}`;
+  }
+  d += ` L ${width} ${height} Z`;
+  return d;
+}
+```
+Animate phase continuously with `requestAnimationFrame` for smooth flowing waves.
+
+**Focus Stats during session:**
+- Top-right corner (minimal): elapsed time, skill name, wave type
+- After session ends (timer hits 0 or user exits):
+  - Show a "Session Summary" overlay:
+    - Duration logged
+    - Skill practiced
+    - Wave environment used
+    - Mood (before vs ask again after)
+    - XP earned
+    - Button: "Log This Session" → saves to Supabase/localStorage
+
+**Study Waves Badge:**
+- **"Wave Rider"** 🌊 — Complete 3 Study Wave sessions
+- **"Deep Diver"** 🤿 — Complete a 60-minute Study Wave session
+- **"Storm Chaser"** ⛈️ — Use 4 different wave types
+
+---
+
+## 🎨 DESIGN REQUIREMENTS FOR ALL NEW FEATURES
+
+All new features must strictly follow the existing design language:
+
+- **Background**: `#0a0f1e` dark navy base
+- **Accent**: `#00d4ff` electric cyan for primary actions
+- **Gold**: `#fbbf24` for achievements and highlights
+- **Font**: `"Sora"` for headings, `"DM Sans"` for body text
+- **Cards**: `rgba(255,255,255,0.04)` background, `rgba(255,255,255,0.08)` border, 16px border-radius
+- **Glassmorphism**: `backdrop-filter: blur(10px)` on modals and overlays
+- **Animations**: Framer Motion for page transitions, CSS keyframes for micro-interactions
+- **Buttons**: Primary = cyan gradient, Ghost = subtle transparent with border
+- **Modals**: Fade-in + scale animation, dark backdrop with blur, Escape key to close
+- **Toasts**: Top-right, cyan border, auto-dismiss after 3 seconds
+- **Empty states**: Friendly illustration (emoji-based) + encouraging CTA text
+- **Loading states**: Pulsing skeleton placeholders, never a blank screen
+
+---
+
+## 📦 UPDATED localStorage KEYS
+
+Add these new keys alongside existing ones:
+
+```
+pst_onboarded          — boolean (true after onboarding complete)
+pst_targets_YYYY-MM-DD — object { skillId: boolean } per day
+pst_auth_cache         — cached user profile for offline access
+pst_sync_status        — "synced" | "syncing" | "offline"
+pst_study_wave_sessions — array of completed Study Wave sessions
+```
+
+---
+
+## ✅ IMPLEMENTATION ORDER
+
+Build in this exact order to avoid breaking existing features:
+
+1. **Fix the skills bug first** — nothing else matters until the dashboard shows skills correctly
+2. **Add ConfirmDialog component** — used by multiple features, build it as a reusable utility
+3. **Add Supabase auth** — login/signup page, session management, Google OAuth
+4. **Migrate data to Supabase** — replace localStorage calls with Supabase queries + cache fallback
+5. **Build Onboarding Flow** — only shows for new/unauthenticated users
+6. **Build Today's Checklist** — add to Dashboard above skills grid
+7. **Build Study Waves** — new full-screen page with wave audio + visualizer
+
+---
+
+## 🔑 SUPABASE SETUP NOTES FOR REPLIT
+
+In Replit:
+1. Go to **Secrets** (the lock icon in sidebar)
+2. Add `VITE_SUPABASE_URL` = your Supabase project URL
+3. Add `VITE_SUPABASE_ANON_KEY` = your Supabase anon/public key
+4. In Supabase dashboard → Authentication → Providers → enable Google OAuth
+5. In Supabase → Authentication → URL Configuration → add your Replit URL to allowed redirect URLs
+6. Enable Email auth in Supabase → Authentication → Providers → Email
+
+Supabase free tier limits (more than enough):
+- 500MB database
+- 50,000 monthly active users
+- 2GB bandwidth
+- Unlimited API requests
+- Always free — no credit card required
+
+---
+
+## 🏁 FINAL CHECKLIST
+
+After implementing all of the above, verify:
+
+- [ ] Skills show correctly on Dashboard after being added (bug fix confirmed)
+- [ ] New users see onboarding flow, returning users go straight to dashboard
+- [ ] Login/signup works with email and Google OAuth
+- [ ] Data persists across devices after login
+- [ ] Today's checklist shows correct skills for today's schedule
+- [ ] Completing all targets triggers celebration animation
+- [ ] Every delete/destructive action shows a confirmation dialog
+- [ ] Study Waves page loads with animated waves and ambient audio
+- [ ] Session logged after Study Waves timer completes
+- [ ] Sync status indicator shows correctly (green = synced)
+- [ ] Offline mode falls back to localStorage cache gracefully
+- [ ] All new pages match the dark navy + cyan design language
+- [ ] Mobile responsive — all features work on small screens
