@@ -88,7 +88,7 @@ export default function AuthPage({ onAuth }: AuthPageProps) {
             <Zap className="w-7 h-7" style={{ color: "#00d4ff" }} />
           </div>
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-white" style={{ fontFamily: "'Sora', sans-serif" }}>SkillTracker</h1>
+            <h1 className="text-2xl font-bold text-white" style={{ fontFamily: "'Sora', sans-serif" }}>SkillMap</h1>
             <p className="text-sm font-medium" style={{ color: "#00d4ff" }}>Track. Grow. Achieve.</p>
           </div>
         </div>
