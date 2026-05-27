@@ -48,13 +48,6 @@ export default function AuthPage({ onAuth }: AuthPageProps) {
     }
   };
 
-  const handleGoogle = async () => {
-    if (!supabase) { setError("Supabase is not configured."); return; }
-    setLoading(true);
-    const { error: err } = await supabase.auth.signInWithOAuth({ provider: "google" });
-    if (err) { setError(err.message); setLoading(false); }
-  };
-
   const handleForgot = async () => {
     if (!email) { setError("Enter your email first."); return; }
     if (!supabase) return;
@@ -179,20 +172,6 @@ export default function AuthPage({ onAuth }: AuthPageProps) {
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (tab === "login" ? "Log In" : "Create Account")}
           </button>
         </form>
-
-        <div className="flex items-center gap-3 my-4">
-          <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.08)" }} />
-          <span className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>or</span>
-          <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.08)" }} />
-        </div>
-
-        <button
-          onClick={handleGoogle} disabled={loading}
-          className="w-full h-11 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all"
-          style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.8)" }}
-        >
-          <span className="text-base">G</span> Continue with Google
-        </button>
 
         <button
           onClick={handleSkip}
