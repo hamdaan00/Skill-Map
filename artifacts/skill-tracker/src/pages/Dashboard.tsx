@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
+import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { Flame, Plus, RefreshCw, Edit2, Trash2, Timer, BookOpen, AlertTriangle, ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
+import { Flame, Plus, RefreshCw, Timer, AlertTriangle, ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { storage, Skill, Session } from "@/lib/storage";
 import { CATEGORY_COLORS, BADGES, calculateStreak, checkBadges } from "@/lib/badges";
 import { quotes, getRandomQuote } from "@/lib/quotes";
@@ -83,6 +83,7 @@ export default function Dashboard() {
   const [unlockedBadges, setUnlockedBadges] = useState(() => storage.getBadges());
   const [targets, setTargets] = useState(() => storage.getTargets());
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   const [quoteIdx, setQuoteIdx] = useState(storage.getLastQuote());
   const [currentQuote, setCurrentQuote] = useState(() => {
@@ -145,17 +146,11 @@ export default function Dashboard() {
   };
 
   const streak = calculateStreak(sessions);
-  const weekActivity = weekDates.map((date) => ({
-    date,
-    count: sessions.filter((s) => s.date === date).length,
-  }));
 
-  // Today's targets (respect scheduled days)
-  const todayTargets = skills.filter((s) => {
-    if (!s.dailyTarget) return false;
-    if (!s.scheduledDays || s.scheduledDays.length === 0) return true;
-    return s.scheduledDays.includes(todayDow);
-  });
+  // Today's targets — only skills explicitly scheduled for today
+  const todayTargets = skills.filter((s) =>
+    s.scheduledDays && s.scheduledDays.includes(todayDow)
+  );
   const todayDone = targets?.date === today ? targets.completedSkillIds : [];
   const weekPracticed = new Set(
     sessions.filter((s) => weekDates.includes(s.date)).map((s) => s.skillId)
@@ -261,13 +256,6 @@ export default function Dashboard() {
 
     checkAndUnlockBadges(allSkills, updatedSessions);
     setLogSkill(null);
-  };
-
-  const getHeatmapColor = (count: number) => {
-    if (count === 0) return "bg-muted";
-    if (count === 1) return "bg-primary/30";
-    if (count === 2) return "bg-primary/60";
-    return "bg-primary";
   };
 
   const stagger = {
@@ -431,29 +419,8 @@ export default function Dashboard() {
         </AnimatePresence>
       </div>
 
-      {/* Weekly Heatmap */}
-      <div className="bg-card border border-border rounded-2xl p-5">
-        <h3 className="text-sm font-semibold text-foreground mb-4">This Week's Activity</h3>
-        <div className="grid grid-cols-7 gap-2">
-          {weekActivity.map(({ date, count }, i) => {
-            const isToday = date === today;
-            return (
-              <div key={date} className="flex flex-col items-center gap-1.5">
-                <div className="text-xs text-muted-foreground">{DAYS[i]}</div>
-                <div
-                  data-testid={`heatmap-${DAYS[i].toLowerCase()}`}
-                  className={`w-8 h-8 rounded-lg ${getHeatmapColor(count)} ${isToday ? "ring-2 ring-primary" : ""} transition-all`}
-                  title={`${count} session${count !== 1 ? "s" : ""}`}
-                />
-                <div className="text-xs text-muted-foreground">{count > 0 ? count : ""}</div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
       {/* Today's Checklist */}
-      <div data-tutorial="checklist-section" className="bg-card border border-border rounded-2xl p-5 space-y-4">
+      <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-semibold text-foreground">Today's Targets</h3>
@@ -566,8 +533,8 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Skills Grid */}
-      <div>
+      {/* My Skills */}
+      <div className="bg-card border border-border rounded-2xl p-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-foreground" style={{ fontFamily: "'Sora', sans-serif" }}>My Skills</h2>
           <Button
@@ -579,166 +546,42 @@ export default function Dashboard() {
             <Plus className="w-4 h-4" /> Add Skill
           </Button>
         </div>
-
         {skills.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center py-16 bg-card border border-dashed border-border rounded-2xl"
-          >
-            <div className="text-5xl mb-4">🌱</div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">No skills yet</h3>
-            <p className="text-muted-foreground text-sm mb-6 max-w-xs mx-auto">Start tracking your first skill and begin your growth journey.</p>
-            <Button data-testid="button-add-first-skill" onClick={() => setShowSkillModal(true)} className="rounded-xl">
-              <Plus className="w-4 h-4 mr-2" /> Add Your First Skill
-            </Button>
-          </motion.div>
+          <p className="text-sm text-muted-foreground text-center py-6">
+            No skills added yet — go to the Skills page to add your first one!
+          </p>
         ) : (
-          <motion.div
-            variants={stagger.container}
-            initial="hidden"
-            animate="show"
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-          >
-            {skills.map((skill) => {
-              const catColor = CATEGORY_COLORS[skill.category] || "#3498DB";
-              const daysInactive = getDaysInactive(skill.lastPracticed);
-              const isRusty = daysInactive >= 5;
-              const isDecaying = daysInactive >= 10;
-              const xp = skill.xp || 0;
-              const level = skill.level || 1;
-              const { current: lvlInfo, next: nextLvl, xpIntoLevel, xpForNext } = getLevelInfo(xp);
-
+          <div className="flex flex-wrap gap-2">
+            {skills.map(skill => {
+              const color = CATEGORY_COLORS[skill.category] || "#00D4FF";
               return (
-                <motion.div
+                <button
                   key={skill.id}
-                  variants={stagger.item}
-                  whileHover={{ y: -4 }}
-                  data-testid={`card-skill-${skill.id}`}
-                  className={`bg-card border rounded-2xl p-5 cursor-pointer group relative transition-all ${
-                    isDecaying ? "opacity-70 border-red-500/30" : isRusty ? "opacity-80 border-yellow-500/30" : "border-border"
-                  }`}
-                  style={{ boxShadow: `0 0 20px ${catColor}08` }}
+                  onClick={() => navigate("/skills")}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                    padding: "6px 14px",
+                    background: `${color}18`,
+                    border: `1px solid ${color}44`,
+                    borderRadius: 20,
+                    fontSize: 13,
+                    color,
+                    fontWeight: 500,
+                    cursor: "pointer",
+                    fontFamily: "'Sora', sans-serif",
+                  }}
                 >
-                  {/* Level badge */}
-                  <div
-                    className="absolute top-3 right-3 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
-                    style={{ backgroundColor: `${lvlInfo.color}25`, color: lvlInfo.color }}
-                  >
-                    {level}
-                  </div>
-
-                  {/* Decay badge */}
-                  {(isRusty || isDecaying) && (
-                    <div className={`absolute top-3 left-3 text-xs px-1.5 py-0.5 rounded-full font-medium ${isDecaying ? "bg-red-500/20 text-red-400" : "bg-yellow-500/20 text-yellow-400"}`}>
-                      {isDecaying ? "🔴 Decaying" : "⚠️ Rusty"}
-                    </div>
-                  )}
-
-                  <div className="flex items-start justify-between mb-3 mt-1">
-                    <div className="flex-1 min-w-0 mr-8">
-                      <h3 className="font-semibold text-foreground truncate" style={{ fontFamily: "'Sora', sans-serif" }}>{skill.name}</h3>
-                      <div className="flex items-center gap-2 flex-wrap mt-1">
-                        <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: `${catColor}20`, color: catColor }}>
-                          {skill.category}
-                        </span>
-                        <span className="text-xs font-medium" style={{ color: lvlInfo.color }}>{lvlInfo.title}</span>
-                      </div>
-                      {skill.scheduledDays && skill.scheduledDays.length > 0 && (
-                        <div className="flex gap-1 mt-1.5 flex-wrap">
-                          {skill.scheduledDays.map(d => (
-                            <span key={d} className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{d}</span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                      <button
-                        data-testid={`button-edit-${skill.id}`}
-                        onClick={() => { setEditSkill(skill); setShowSkillModal(true); }}
-                        className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
-                      ><Edit2 className="w-3.5 h-3.5" /></button>
-                      <button
-                        data-testid={`button-delete-${skill.id}`}
-                        onClick={() => setDeleteSkillId(skill.id)}
-                        className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
-                      ><Trash2 className="w-3.5 h-3.5" /></button>
-                    </div>
-                  </div>
-
-                  {/* Progress */}
-                  <div className="space-y-1 mb-2">
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Progress</span><span>{skill.progress}%</span>
-                    </div>
-                    <Progress value={skill.progress} className="h-1.5" />
-                  </div>
-
-                  {/* XP Bar */}
-                  <div className="space-y-1 mb-4">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground">XP</span>
-                      <span style={{ color: lvlInfo.color }}>{xpIntoLevel} / {level === 6 ? "MAX" : `${xpForNext} to ${nextLvl.title}`}</span>
-                    </div>
-                    <div className="h-1 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{ width: `${getLevelInfo(xp).progress}%`, backgroundColor: lvlInfo.color }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs text-muted-foreground">
-                      {skill.lastPracticed ? (skill.lastPracticed === today ? "Today" : skill.lastPracticed) : "Not practiced"}
-                    </span>
-                    <div className="flex gap-1.5">
-                      <Button
-                        data-testid={`button-timer-${skill.id}`}
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setTimerSkill(skill)}
-                        className="h-7 w-7 p-0 rounded-lg"
-                      >
-                        <Timer className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button
-                        data-testid={`button-journal-${skill.id}`}
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          // Store skill id in sessionStorage for journal drawer
-                          sessionStorage.setItem('journal_skill_id', skill.id);
-                          sessionStorage.setItem('journal_skill_name', skill.name);
-                          window.dispatchEvent(new CustomEvent('open-journal', { detail: { skillId: skill.id, skillName: skill.name } }));
-                        }}
-                        className="h-7 w-7 p-0 rounded-lg"
-                      >
-                        <BookOpen className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button
-                        data-testid={`button-log-${skill.id}`}
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setLogSkill(skill)}
-                        className="h-7 px-3 text-xs rounded-xl"
-                        style={{ borderColor: `${catColor}40`, color: catColor }}
-                      >
-                        Log
-                      </Button>
-                    </div>
-                  </div>
-                </motion.div>
+                  {skill.name}
+                </button>
               );
             })}
-          </motion.div>
+          </div>
         )}
       </div>
 
       {/* FAB */}
       <motion.button
         data-testid="button-fab-add"
-        data-tutorial="add-skill-btn"
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => { setEditSkill(null); setShowSkillModal(true); }}

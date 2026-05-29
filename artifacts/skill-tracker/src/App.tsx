@@ -8,7 +8,6 @@ import { useState, useEffect } from "react";
 import { storage } from "@/lib/storage";
 import { supabase } from "@/lib/supabase";
 import Layout from "@/components/Layout";
-import Tutorial from "@/components/Tutorial";
 import JournalDrawer from "@/components/JournalDrawer";
 import AuthPage from "@/pages/AuthPage";
 import Onboarding from "@/pages/Onboarding";
@@ -35,8 +34,6 @@ function AppContent() {
   const [journalOpen, setJournalOpen] = useState(false);
   const [journalSkillId, setJournalSkillId] = useState("");
   const [journalSkillName, setJournalSkillName] = useState("");
-  const [showTutorial, setShowTutorial] = useState(false);
-
   useEffect(() => {
     async function init() {
       if (supabase) {
@@ -99,15 +96,6 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
-    const handler = () => {
-      localStorage.removeItem("pst_tutorial_done");
-      setShowTutorial(true);
-    };
-    window.addEventListener("replay-tutorial", handler);
-    return () => window.removeEventListener("replay-tutorial", handler);
-  }, []);
-
-  useEffect(() => {
     const interval = setInterval(() => {
       const user = storage.getUser();
       if (!user?.reminderEnabled || Notification.permission !== "granted") return;
@@ -121,15 +109,6 @@ function AppContent() {
     }, 60000);
     return () => clearInterval(interval);
   }, []);
-
-  // Trigger tutorial for first-time users when they reach the app
-  useEffect(() => {
-    if (appState === "app" && !localStorage.getItem("pst_tutorial_done")) {
-      // Small delay so the app UI renders first
-      const t = setTimeout(() => setShowTutorial(true), 600);
-      return () => clearTimeout(t);
-    }
-  }, [appState]);
 
   if (appState === "loading") {
     return (
@@ -160,32 +139,29 @@ function AppContent() {
   };
 
   return (
-    <>
-      <Layout onRequestAuth={handleRequestAuth}>
-        <Switch>
-          <Route path="/" component={() => <Redirect to="/dashboard" />} />
-          <Route path="/dashboard" component={Dashboard} />
-          <Route path="/skills" component={Skills} />
-          <Route path="/timer" component={FocusTimer} />
-          <Route path="/progress" component={Progress} />
-          <Route path="/targets" component={Targets} />
-          <Route path="/challenges" component={Challenges} />
-          <Route path="/journal" component={Journal} />
-          <Route path="/achievements" component={Achievements} />
-          <Route path="/duels" component={Duels} />
-          <Route path="/partner" component={Partner} />
-          <Route path="/settings" component={Settings} />
-          <Route component={NotFound} />
-        </Switch>
-        <JournalDrawer
-          open={journalOpen}
-          onClose={() => setJournalOpen(false)}
-          skillId={journalSkillId}
-          skillName={journalSkillName}
-        />
-      </Layout>
-      {showTutorial && <Tutorial onDone={() => setShowTutorial(false)} />}
-    </>
+    <Layout onRequestAuth={handleRequestAuth}>
+      <Switch>
+        <Route path="/" component={() => <Redirect to="/dashboard" />} />
+        <Route path="/dashboard" component={Dashboard} />
+        <Route path="/skills" component={Skills} />
+        <Route path="/timer" component={FocusTimer} />
+        <Route path="/progress" component={Progress} />
+        <Route path="/targets" component={Targets} />
+        <Route path="/challenges" component={Challenges} />
+        <Route path="/journal" component={Journal} />
+        <Route path="/achievements" component={Achievements} />
+        <Route path="/duels" component={Duels} />
+        <Route path="/partner" component={Partner} />
+        <Route path="/settings" component={Settings} />
+        <Route component={NotFound} />
+      </Switch>
+      <JournalDrawer
+        open={journalOpen}
+        onClose={() => setJournalOpen(false)}
+        skillId={journalSkillId}
+        skillName={journalSkillName}
+      />
+    </Layout>
   );
 }
 

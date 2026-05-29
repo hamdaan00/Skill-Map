@@ -310,22 +310,6 @@ export default function Settings() {
         </motion.div>
       )}
 
-      {/* Tutorial */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }} className="bg-card border border-border rounded-2xl p-6 space-y-4">
-        <div className="flex items-center gap-3">
-          <span className="text-lg">🎓</span>
-          <h2 className="font-semibold text-foreground" style={{ fontFamily: "'Sora', sans-serif" }}>Tutorial</h2>
-        </div>
-        <p className="text-sm text-muted-foreground">Replay the interactive walkthrough to rediscover all features.</p>
-        <Button
-          variant="outline"
-          className="rounded-xl gap-2"
-          onClick={() => window.dispatchEvent(new Event("replay-tutorial"))}
-        >
-          🌟 Replay Tutorial
-        </Button>
-      </motion.div>
-
       {/* Danger Zone */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="bg-card border border-destructive/30 rounded-2xl p-6 space-y-4">
         <div className="flex items-center gap-3">

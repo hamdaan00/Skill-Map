@@ -1,0 +1,447 @@
+# 🔧 Replit Fix Prompt — Dashboard Cleanup, Skills Display, Tutorial Removal & Study Waves Audio Fix
+
+Fix these specific issues only. Do not change anything else in the app.
+
+---
+
+## FIX 1 — Remove "This Week's Activity" Section from Dashboard
+
+- Find the "This Week's Activity" section/widget on the Dashboard component
+- Delete it completely — the entire section including its container div, heading, and any chart/heatmap inside it
+- Do not replace it with anything
+- The space it occupied should simply be removed — let the sections above and below close the gap naturally
+- Make sure removing it does not break any other component that might import or reference it
+
+---
+
+## FIX 2 — Today's Targets Section Shows Only Skills Scheduled for Today
+
+The Today's Targets / Daily Checklist section must show skills based on each skill's
+`scheduledDays` array.
+
+### Correct Behavior:
+- Get today's day name (Mon, Tue, Wed, Thu, Fri, Sat, Sun)
+- Only show skills where `skill.scheduledDays` includes today's day name
+- Each item shows: skill icon + skill name + daily target text + checkbox to mark done
+- If no skills are scheduled for today show:
+  *"🌿 No targets scheduled for today — enjoy your rest day!"*
+
+### Code to get today's day name:
+```javascript
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const todayName = DAYS[new Date().getDay()]; // e.g. "Mon"
+
+const todaysSkills = skills.filter(skill =>
+  skill.scheduledDays && skill.scheduledDays.includes(todayName)
+);
+```
+
+### Do NOT show:
+- Skills that are not scheduled for today
+- Any skill management buttons (edit, delete, archive) in this section
+- Any extra information beyond: icon, name, target, checkbox
+
+---
+
+## FIX 3 — My Skills Section on Dashboard Shows Names Only
+
+The "My Skills" section on the Dashboard must be simplified to show skill names only —
+no management controls.
+
+### Current problem:
+Skills section shows edit buttons, delete buttons, progress bars, XP info,
+and other management options directly on the dashboard.
+
+### Required design:
+Show each skill as a simple clean pill/chip — just the icon and name:
+
+```jsx
+// Simple skill name display — no management options
+<div style={{
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 8,
+}}>
+  {skills.filter(s => !s.archived).map(skill => (
+    <div key={skill.id} style={{
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 6,
+      padding: "6px 14px",
+      background: `${skill.color}18`,
+      border: `1px solid ${skill.color}44`,
+      borderRadius: 20,
+      fontSize: 13,
+      color: skill.color,
+      fontWeight: 500,
+    }}>
+      <span>{skill.icon}</span>
+      <span>{skill.name}</span>
+    </div>
+  ))}
+</div>
+```
+
+### Rules:
+- No edit button on dashboard skills
+- No delete button on dashboard skills
+- No progress bar on dashboard skills
+- No XP display on dashboard skills
+- No level badge on dashboard skills
+- No "Log Practice" button on dashboard skills
+- Clicking a skill pill can navigate to the Skills page — but no inline management
+- If user has no skills yet show: *"No skills added yet — go to Skills page to add your first one!"*
+- All skill management (edit, delete, archive, log practice) stays on the dedicated Skills page only
+
+---
+
+## FIX 4 — Remove Tutorial System Completely
+
+Remove every part of the tutorial/walkthrough system from the entire codebase:
+
+### Delete completely:
+- The `TutorialOverlay` component (entire file or component block)
+- The `TUTORIAL_STEPS` array
+- Any `data-tutorial="..."` attributes added to UI elements
+- The tutorial state variables: `showTutorial`, `currentStep`, `tutorialDone`, etc.
+- The `pst_tutorial_done` localStorage key and any code reading/writing it
+- Any `useEffect` that checks for first-time users and triggers the tutorial
+- The spotlight overlay CSS (`tutorialPulse` keyframe animation, spotlight styles)
+- The "Replay Tutorial" button in Settings
+- Any tutorial-related imports
+
+### After removal verify:
+- App loads normally with no tutorial appearing
+- No console errors about missing tutorial components
+- Settings page no longer shows "Replay Tutorial" button
+- No blank overlay appears on first load
+- localStorage no longer has `pst_tutorial_done` key being set
+
+---
+
+## FIX 5 — Study Waves Audio Fix (Mountain Wind + General Audio Issues)
+
+### The Problem:
+Audio is mismatching between wave types and there are audio issues especially
+with Mountain Wind. The problem is likely:
+1. Previous audio nodes not being fully stopped before new ones start
+2. Mountain Wind using incorrect filter/oscillator settings causing distortion or wrong sound
+3. AudioContext not being closed properly when switching wave types causing overlap
+
+### Fix — Robust Audio Cleanup Function:
+
+Every time a new wave type is selected OR the user exits Study Waves, ALL existing
+audio nodes must be completely stopped and disconnected before creating new ones:
+
+```javascript
+// Global audio state
+let activeNodes = [];
+let activeContext = null;
+
+function stopAllAudio() {
+  // Stop all active nodes
+  activeNodes.forEach(node => {
+    try {
+      if (node.stop) node.stop(0);
+      node.disconnect();
+    } catch (e) {
+      // Already stopped — ignore
+    }
+  });
+  activeNodes = [];
+
+  // Close and nullify the AudioContext
+  if (activeContext) {
+    try {
+      activeContext.close();
+    } catch (e) {}
+    activeContext = null;
+  }
+}
+
+function startWave(type) {
+  // ALWAYS stop everything first
+  stopAllAudio();
+
+  // Small delay to ensure cleanup is complete before starting new audio
+  setTimeout(() => {
+    activeContext = new (window.AudioContext || window.webkitAudioContext)();
+    const nodes = createWaveSound(type, activeContext);
+    activeNodes = nodes;
+  }, 100);
+}
+```
+
+### Fix — Each Wave Type Sound Definition:
+
+Replace ALL wave sound implementations with these clean, correct versions:
+
+```javascript
+function createWaveSound(type, ctx) {
+  const masterGain = ctx.createGain();
+  masterGain.gain.value = 0.4;
+  masterGain.connect(ctx.destination);
+  const nodes = [masterGain];
+
+  switch(type) {
+
+    case "Ocean Waves": {
+      // Brown noise with slow volume modulation = ocean wave rhythm
+      const bufferSize = ctx.sampleRate * 4;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      let last = 0;
+      for (let i = 0; i < bufferSize; i++) {
+        const white = Math.random() * 2 - 1;
+        last = (last + 0.02 * white) / 1.02;
+        data[i] = last * 4;
+      }
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.loop = true;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.value = 500;
+      filter.Q.value = 0.5;
+
+      // LFO for wave rhythm
+      const lfo = ctx.createOscillator();
+      const lfoGain = ctx.createGain();
+      lfo.frequency.value = 0.15; // slow wave rhythm
+      lfoGain.gain.value = 0.3;
+      lfo.connect(lfoGain);
+      lfoGain.connect(masterGain.gain);
+      lfo.type = "sine";
+
+      source.connect(filter);
+      filter.connect(masterGain);
+      lfo.start(0);
+      source.start(0);
+      nodes.push(source, filter, lfo, lfoGain);
+      break;
+    }
+
+    case "Rain Storm": {
+      // White noise through highpass = rain sound
+      const bufferSize = ctx.sampleRate * 2;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.loop = true;
+
+      const highpass = ctx.createBiquadFilter();
+      highpass.type = "highpass";
+      highpass.frequency.value = 1200;
+
+      const lowpass = ctx.createBiquadFilter();
+      lowpass.type = "lowpass";
+      lowpass.frequency.value = 8000;
+
+      source.connect(highpass);
+      highpass.connect(lowpass);
+      lowpass.connect(masterGain);
+      source.start(0);
+      nodes.push(source, highpass, lowpass);
+      break;
+    }
+
+    case "Fire Crackle": {
+      // Filtered noise with slow random amplitude modulation = crackling fire
+      const bufferSize = ctx.sampleRate * 2;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      let lastSample = 0;
+      for (let i = 0; i < bufferSize; i++) {
+        lastSample = (Math.random() * 2 - 1) * 0.5 + lastSample * 0.5;
+        data[i] = lastSample;
+      }
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.loop = true;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = "bandpass";
+      filter.frequency.value = 800;
+      filter.Q.value = 0.3;
+
+      // Crackle modulation
+      const lfo = ctx.createOscillator();
+      const lfoGain = ctx.createGain();
+      lfo.frequency.value = 3.5;
+      lfo.type = "sawtooth";
+      lfoGain.gain.value = 0.2;
+      lfo.connect(lfoGain);
+      lfoGain.connect(masterGain.gain);
+
+      source.connect(filter);
+      filter.connect(masterGain);
+      lfo.start(0);
+      source.start(0);
+      nodes.push(source, filter, lfo, lfoGain);
+      break;
+    }
+
+    case "Space Drift": {
+      // Slow sine tones layered = deep space ambient
+      const freqs = [55, 82.5, 110, 165];
+      freqs.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        gain.gain.value = 0.08;
+
+        // Slow fade in/out for each tone
+        const lfo = ctx.createOscillator();
+        const lfoGain = ctx.createGain();
+        lfo.type = "sine";
+        lfo.frequency.value = 0.05 + i * 0.02;
+        lfoGain.gain.value = 0.06;
+        lfo.connect(lfoGain);
+        lfoGain.connect(gain.gain);
+
+        osc.connect(gain);
+        gain.connect(masterGain);
+        osc.start(0);
+        lfo.start(0);
+        nodes.push(osc, gain, lfo, lfoGain);
+      });
+      break;
+    }
+
+    case "Lo-Fi Waves": {
+      // Warm chord tones with gentle tremolo = lo-fi feel
+      const chordFreqs = [130.81, 164.81, 196.00, 246.94]; // C E G B
+      chordFreqs.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "triangle";
+        osc.frequency.value = freq;
+        gain.gain.value = 0.06;
+
+        // Gentle tremolo
+        const tremolo = ctx.createOscillator();
+        const tremoloGain = ctx.createGain();
+        tremolo.type = "sine";
+        tremolo.frequency.value = 4.5;
+        tremoloGain.gain.value = 0.02;
+        tremolo.connect(tremoloGain);
+        tremoloGain.connect(gain.gain);
+
+        osc.connect(gain);
+        gain.connect(masterGain);
+        osc.start(0);
+        tremolo.start(0);
+        nodes.push(osc, gain, tremolo, tremoloGain);
+      });
+      break;
+    }
+
+    case "Mountain Wind": {
+      // THIS WAS THE BROKEN ONE — rewritten correctly
+      // Filtered white noise swept slowly with LFO = wind through trees
+      const bufferSize = ctx.sampleRate * 3;
+      const buffer = ctx.createBuffer(2, bufferSize, ctx.sampleRate); // stereo
+      for (let channel = 0; channel < 2; channel++) {
+        const data = buffer.getChannelData(channel);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+      }
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.loop = true;
+
+      // Bandpass filter — narrow band = wind tone
+      const bandpass = ctx.createBiquadFilter();
+      bandpass.type = "bandpass";
+      bandpass.frequency.value = 600;
+      bandpass.Q.value = 1.5;
+
+      // Second filter for shimmer
+      const highshelf = ctx.createBiquadFilter();
+      highshelf.type = "highshelf";
+      highshelf.frequency.value = 3000;
+      highshelf.gain.value = -6; // reduce harshness
+
+      // LFO to slowly sweep the filter frequency = gusting wind
+      const lfo = ctx.createOscillator();
+      const lfoGain = ctx.createGain();
+      lfo.type = "sine";
+      lfo.frequency.value = 0.08; // very slow sweep
+      lfoGain.gain.value = 300; // sweep range in Hz
+      lfo.connect(lfoGain);
+      lfoGain.connect(bandpass.frequency); // modulate filter frequency
+
+      // Volume LFO = wind gusts
+      const volLfo = ctx.createOscillator();
+      const volLfoGain = ctx.createGain();
+      volLfo.type = "sine";
+      volLfo.frequency.value = 0.12;
+      volLfoGain.gain.value = 0.15;
+      volLfo.connect(volLfoGain);
+      volLfoGain.connect(masterGain.gain);
+
+      source.connect(bandpass);
+      bandpass.connect(highshelf);
+      highshelf.connect(masterGain);
+
+      source.start(0);
+      lfo.start(0);
+      volLfo.start(0);
+
+      nodes.push(source, bandpass, highshelf, lfo, lfoGain, volLfo, volLfoGain);
+      break;
+    }
+
+    default:
+      break;
+  }
+
+  return nodes;
+}
+```
+
+### Additional Audio Rules:
+
+- When user clicks a wave type that is ALREADY playing — stop it (toggle off)
+- When user clicks a DIFFERENT wave type — stop current, start new (with 100ms delay)
+- When user exits Study Waves page — call `stopAllAudio()` immediately
+- When component unmounts — call `stopAllAudio()` in `useEffect` cleanup:
+```javascript
+useEffect(() => {
+  return () => stopAllAudio(); // cleanup on unmount
+}, []);
+```
+- Master volume slider must connect to `masterGain.gain.value` directly:
+```javascript
+function setVolume(value) { // value 0.0 to 1.0
+  if (activeNodes.length > 0 && activeContext) {
+    const masterGain = activeNodes[0]; // first node is always masterGain
+    masterGain.gain.value = value;
+  }
+}
+```
+
+---
+
+## ✅ TESTING CHECKLIST
+
+- [ ] "This Week's Activity" section is completely gone from dashboard
+- [ ] Today's Targets shows only skills scheduled for today's day of week
+- [ ] Today's Targets shows rest day message when no skills scheduled
+- [ ] My Skills section shows only icon + name pills — no buttons or stats
+- [ ] Clicking a skill pill navigates to Skills page
+- [ ] Tutorial never appears — not on first load, not ever
+- [ ] No tutorial-related console errors
+- [ ] Settings page has no "Replay Tutorial" button
+- [ ] Study Waves — switching wave types stops previous audio cleanly
+- [ ] Mountain Wind plays correctly (wind sound, not distorted noise)
+- [ ] All 6 wave types sound distinct and correct
+- [ ] Exiting Study Waves stops all audio immediately
+- [ ] Volume slider works correctly for all wave types
