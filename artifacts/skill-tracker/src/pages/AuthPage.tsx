@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Zap, Eye, EyeOff, Loader2, Mail, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
+import { Zap, Eye, EyeOff, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { storage } from "@/lib/storage";
 
@@ -10,8 +10,6 @@ interface AuthPageProps {
 
 export default function AuthPage({ onAuth }: AuthPageProps) {
   const [tab, setTab] = useState<"login" | "signup">("login");
-  const [authStep, setAuthStep] = useState<"form" | "verify-email">("form");
-  const [submittedEmail, setSubmittedEmail] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,16 +18,6 @@ export default function AuthPage({ onAuth }: AuthPageProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [resendCooldown, setResendCooldown] = useState(0);
-  const [showTips, setShowTips] = useState(false);
-
-  useEffect(() => {
-    let timer: ReturnType<typeof setInterval>;
-    if (resendCooldown > 0) {
-      timer = setInterval(() => setResendCooldown(c => c - 1), 1000);
-    }
-    return () => clearInterval(timer);
-  }, [resendCooldown]);
 
   useEffect(() => {
     if (!supabase) return;
@@ -77,8 +65,10 @@ export default function AuthPage({ onAuth }: AuthPageProps) {
           }
           onAuth();
         } else {
-          setSubmittedEmail(email);
-          setAuthStep("verify-email");
+          setMessage("✉️ Check your email for a confirmation link, then log in.");
+          setTab("login");
+          setPassword("");
+          setConfirm("");
         }
       } else {
         setLoading(true);
@@ -101,18 +91,6 @@ export default function AuthPage({ onAuth }: AuthPageProps) {
       } else {
         setError(msg || "Something went wrong. Please try again.");
       }
-    }
-  };
-
-  const handleResend = async () => {
-    if (!supabase || resendCooldown > 0) return;
-    try {
-      await supabase.auth.resend({ type: "signup", email: submittedEmail });
-      setResendCooldown(60);
-      setMessage("✅ Verification email resent!");
-      setTimeout(() => setMessage(""), 4000);
-    } catch {
-      setMessage("Failed to resend. Please try again.");
     }
   };
 
@@ -146,98 +124,6 @@ export default function AuthPage({ onAuth }: AuthPageProps) {
     background: "rgba(255,255,255,0.06)",
     border: "1px solid rgba(255,255,255,0.1)",
   };
-
-  if (authStep === "verify-email") {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "#0a0f1e" }}>
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-sm text-center"
-          style={card}
-        >
-          <motion.div
-            animate={{ y: [0, -8, 0] }}
-            transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-            className="text-6xl mb-6"
-          >
-            ✉️
-          </motion.div>
-
-          <h2 className="text-2xl font-bold text-white mb-3" style={{ fontFamily: "'Sora', sans-serif" }}>
-            Check your inbox! 📬
-          </h2>
-
-          <p className="text-sm mb-3" style={{ color: "rgba(255,255,255,0.5)" }}>
-            We've sent a verification link to:
-          </p>
-
-          <div
-            className="inline-block px-4 py-1.5 rounded-full text-sm font-semibold mb-4"
-            style={{ background: "rgba(0,212,255,0.12)", border: "1px solid rgba(0,212,255,0.3)", color: "#00d4ff" }}
-          >
-            {submittedEmail}
-          </div>
-
-          <p className="text-sm mb-6" style={{ color: "rgba(255,255,255,0.5)" }}>
-            Click the link in that email to activate your account and start tracking your skills.
-          </p>
-
-          {message && (
-            <p className="text-xs mb-4" style={{ color: "#00d4ff" }}>{message}</p>
-          )}
-
-          <button
-            onClick={handleResend}
-            disabled={resendCooldown > 0}
-            className="w-full h-11 rounded-xl text-sm font-medium mb-3 transition-all flex items-center justify-center gap-2"
-            style={{
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.12)",
-              color: resendCooldown > 0 ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.7)",
-              cursor: resendCooldown > 0 ? "not-allowed" : "pointer",
-            }}
-          >
-            <RefreshCw className="w-4 h-4" />
-            {resendCooldown > 0 ? `Resend again in ${resendCooldown}s` : "Resend Email"}
-          </button>
-
-          <button
-            onClick={() => setShowTips(s => !s)}
-            className="w-full text-xs text-left flex items-center justify-between px-3 py-2 rounded-xl mb-2 transition-all"
-            style={{ background: "rgba(255,255,255,0.03)", color: "rgba(255,255,255,0.35)" }}
-          >
-            <span>What if I don't see it?</span>
-            {showTips ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-          </button>
-
-          <AnimatePresence>
-            {showTips && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                className="text-xs text-left space-y-1.5 mb-4 px-3 py-2 rounded-xl"
-                style={{ background: "rgba(255,255,255,0.03)", color: "rgba(255,255,255,0.4)" }}
-              >
-                <p>• Check your Spam or Junk folder</p>
-                <p>• Make sure you typed your email correctly</p>
-                <p>• The link expires in 24 hours</p>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          <button
-            onClick={() => { setAuthStep("form"); setTab("signup"); setError(""); setMessage(""); }}
-            className="text-xs transition-all"
-            style={{ color: "rgba(0,212,255,0.6)" }}
-          >
-            Wrong email? Go back
-          </button>
-        </motion.div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "#0a0f1e" }}>
