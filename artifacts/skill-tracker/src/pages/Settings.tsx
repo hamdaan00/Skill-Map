@@ -301,8 +301,8 @@ export default function Settings() {
             variant="outline"
             className="rounded-xl gap-2"
             onClick={async () => {
-              await supabase.auth.signOut();
-              window.location.reload();
+              localStorage.removeItem("pst_is_guest");
+              await supabase!.auth.signOut();
             }}
           >
             Sign Out

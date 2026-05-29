@@ -60,13 +60,17 @@ function AppContent() {
             setAppState("auth");
           }
         });
+        // No active Supabase session → always show auth (ignore localStorage)
+        setAppState("auth");
+        return;
       }
 
+      // Supabase not configured — fall back to localStorage
       const hasUser = !!storage.getUser();
       if (hasUser) {
         setAppState("app");
       } else {
-        setAppState(supabase ? "auth" : "onboarding");
+        setAppState("onboarding");
       }
     }
     init();
